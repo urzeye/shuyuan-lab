@@ -11,7 +11,31 @@
 ---
 
 > [!IMPORTANT]
-> **GitHub Pages 仅提供静态编辑功能**（XBS ↔ JSON 转换、书源管理），不含 AI 生成。AI 生成依赖后端 Agent 服务、Chrome/Chromium 和 Claude Agent SDK，须本地运行。
+> **推荐使用 Claude Code 本地运行。** GitHub Pages 仅提供静态编辑功能（XBS ↔ JSON 转换、书源管理），不含 AI 生成。
+
+## 快速开始（Claude Code）
+
+安装 [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) 后，在项目目录下直接对话生成书源：
+
+```bash
+# 安装依赖
+pnpm install
+
+# 在 Claude Code 中对话
+claude
+```
+
+进入 Claude Code 后，直接说：
+
+> 帮我生成 www.69shuba.com 的书源
+
+Agent 会自动完成：浏览器采集 → Cloudflare 过盾 → 搜索验证 → 详情/目录/正文提取 → XPath 检查 → 输出可导入的 XBS 书源 JSON。
+
+生成结果保存在 `.runtime/agent-tasks/<taskId>/source.json`。
+
+如需指定测试书名：
+
+> 帮我生成 www.69shuba.com 的书源，测试书名用"斗罗大陆"
 
 ## 功能
 
@@ -21,13 +45,15 @@
 | CodeMirror JSON 编辑、格式化 | 真实浏览器采集（首页→搜索→详情→目录→正文） |
 | 书源管理（导入/导出/启用/禁用） | Cloudflare JS Challenge / Turnstile 自动处理 |
 
-## 本地运行
+## 本地运行（Web UI）
+
+如果你偏好 Web 界面而非命令行对话：
 
 ### 环境
 
 - Node.js 20+、pnpm
 - Google Chrome 或 Chromium
-- Anthropic API Key（或兼容网关，由页面用户填写）
+- Anthropic API Key
 
 ### 安装
 
@@ -37,6 +63,7 @@ cd shuyuan-lab
 pnpm install
 pnpm exec playwright install chromium
 cp .env.example .env
+# 编辑 .env，填入 ANTHROPIC_API_KEY
 pnpm dev
 ```
 
@@ -45,21 +72,24 @@ pnpm dev
 - Web UI → `http://localhost:5173`
 - Agent API → `http://localhost:3001`
 
-## 使用
+### Web UI 使用
 
-### 静态编辑
+1. 左侧导航 →「AI 生成书源」，输入目标网站 URL + 测试书名
+2. 点击「开始生成」，查看 Agent 实时步骤
+3. 完成后复制 JSON 或添加到书源管理
 
-1. 拖入 `.xbs` 文件或点击导入
-2. 编辑 JSON → 格式化 → 导出为 `.xbs` 或 `.json`
+### 手动采集
 
-### AI 生成书源
+```bash
+node .claude/skills/xbs-source-generator/scripts/collect-site.mjs collect \
+  --url 'https://example.com/' \
+  --book '书名' \
+  --output '.runtime/manual/evidence.json'
+```
 
-1. 在 `.env` 中配置 `ANTHROPIC_API_KEY` 等凭据
-2. 左侧导航 →「AI 生成书源」，输入目标网站 URL + 测试书名
-3. 点击「开始生成」，查看 Agent 实时步骤
-4. 完成后复制 JSON 或添加到书源管理
+## 生成流程
 
-生成流程由 Claude Agent SDK 驱动项目内 skill：
+生成流程由 [Claude Agent SDK](https://docs.anthropic.com/en/docs/claude-code/claude-agent-sdk) 驱动项目内 skill：
 
 ```text
 .claude/skills/xbs-source-generator/
@@ -76,16 +106,7 @@ pnpm dev
     └── script.js
 ```
 
-Agent 先运行受限采集器获取 search/detail/chapters/content 页面快照，再用离线 `inspect` 命令逐项验证 XPath，最终输出可导入的 XBS 书源 JSON。
-
-### 手动采集
-
-```bash
-node .claude/skills/xbs-source-generator/scripts/collect-site.mjs collect \
-  --url 'https://example.com/' \
-  --book '书名' \
-  --output '.runtime/manual/evidence.json'
-```
+Agent 先运行受限采集器获取 search/detail/chapters/content 页面快照，再用离线 `inspect` 命令逐项验证 XPath，最终输出可导入的 XBS 书源 JSON。Skill 会自动处理搜索方式识别（GET/POST）、结果列表定位、详情元数据提取、章节目录和正文抓取，并拒绝将 Cloudflare Cookie 或外部搜索引擎 URL 写入书源。
 
 ## Cloudflare 处理
 

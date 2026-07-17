@@ -35,15 +35,16 @@ export function normalizeAndValidateResult(
   if (hasSensitiveMaterial(source)) throw new Error("书源结果包含浏览器会话或密钥材料");
 
   source.sourceName = String(source.sourceName || requestedUrl.hostname);
-  source.sourceUrl = String(source.sourceUrl || requestedUrl.origin);
+  source.sourceUrl = String(source.sourceUrl || requestedUrl.origin).replace(/\/+$/, "");
   source.enable = source.enable === false || source.enable === 0 ? 0 : 1;
   source.weight = String(source.weight || "9000");
   source.miniAppVersion = String(source.miniAppVersion || "2.53.2");
-  source.lastModifyTime = String(source.lastModifyTime || "0");
+  if (!source.lastModifyTime || String(source.lastModifyTime) === "0") {
+    source.lastModifyTime = String(Date.now() / 1000);
+  }
   source.sourceType = String(source.sourceType || "text");
-  source.httpHeaders ??= "";
-  source.desc ??= "由 XBS 书源 Agent 根据实测页面生成";
-  source.password ??= "";
+  // 不设置 httpHeaders 默认值——缺失或空对象都让 App 自行处理，空字符串会导致类型不匹配闪退
+  // 不设置 desc/password 默认值——空字段直接省略，避免无意义的自动填充文本
 
   for (const key of requiredRules) {
     if (!isRecord(source[key])) throw new Error(`${key} 不是有效规则对象`);
@@ -54,7 +55,7 @@ export function normalizeAndValidateResult(
     }
     rule.parserID ??= "DOM";
     rule.responseFormatType ??= "html";
-    rule.validConfig ??= "";
+    // validConfig 不设默认空字符串——缺少时 App 自行处理，空字符串可能引起意外行为
   }
 
   const coreFields: Array<[string, string]> = [

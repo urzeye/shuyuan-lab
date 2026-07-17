@@ -22,20 +22,29 @@ Generate rules from runtime evidence, not from guessed site conventions.
    ```
 
    Verify at minimum `searchBook.list`, `searchBook.detailUrl`, `chapterList.list`, `chapterList.url`, and `chapterContent.content`. Verify detail fields that are emitted.
-7. Return the requested structured output. Put only one JSON object in `source_json`. Include concrete evidence URLs, selector check results, and unresolved limitations.
+7. Write the `source_json` as a standalone JSON file next to `evidence.json`, named `{sourceName}.json` (replace characters `\ / : * ? " < > |` with empty string). Then convert it to XBS:
+
+   ```bash
+   node .claude/skills/xbs-source-generator/scripts/xbs-encode.mjs <taskDir>/<sourceName>.json <taskDir>/<sourceName>.xbs
+   ```
+
+8. Return the requested structured output. Put only one JSON object in `source_json`. Include concrete evidence URLs, selector check results, and unresolved limitations.
 
 ## Decision rules
 
 - Treat browser-rendered state and captured final URLs as authoritative.
 - Use the successful search method recorded by the collector. Never infer a POST body or query key from a generic route name.
+- **Validate that the search response actually contains search results.** A page that returns the same content as the homepage regardless of the search term is NOT a working search endpoint. Evidence rule: the captured page title, text content, or book links must differ across two different search terms, and the test book title must appear in the result list. A homepage that happens to list one matching book among its static rankings is not a search result.
 - Distinguish `search.successful` from `search.external_discovery`. Only a target-site URL/form may become `searchBook.requestInfo`; external discovery can prove a detail page but cannot replace a missing target-site search rule.
 - Use XPath only for DOM parser fields.
 - Resolve relative `detailUrl`, chapter `url`, and image URLs with an XBS `||@js:` suffix based on `params.responseUrl` when the app will not resolve them itself.
 - Put content cleanup in `chapterContent.content` using `|@js:`. Never emit a `filter` field.
 - Emit optional `bookWorld`, shudan, shuping, or related-word rules only when captured evidence proves their list structure.
 - Preserve `status` and `lastChapterTitle`; do not use `state` or `lastChapter`.
-- Keep `httpHeaders` empty unless the browser evidence proves a required stable header. Never copy clearance cookies or challenge tokens into a book source.
+- **Omit fields whose values would be empty strings.** The App treats a missing field as "not set," while `""` is a concrete string value that may trigger type mismatch crashes. This applies especially to `password`, `desc`, `httpHeaders`, and `validConfig`. For `httpHeaders` specifically: if no required headers are proven by evidence, omit the field entirely — never emit `""`.
 - A Cloudflare clearance cookie belongs to the collector profile, not the generated XBS JSON.
+- `lastModifyTime` must be a current Unix timestamp in `"seconds.microseconds"` format (e.g. `"1700000000.000000"`), never `"0"`.
+- `sourceUrl` must not have a trailing slash.
 
 ## Failure handling
 
@@ -51,5 +60,6 @@ Generate rules from runtime evidence, not from guessed site conventions.
 - [references/extraction.md](references/extraction.md): page-role and selector heuristics.
 - [references/cloudflare.md](references/cloudflare.md): challenge behavior and troubleshooting.
 - `scripts/collect-site.mjs`: browser collection plus offline XPath inspection.
+- `scripts/xbs-encode.mjs`: XXTEA encrypt JSON → XBS binary.
 - `scripts/cloudflare-browser.mjs`: persistent Chrome launch, challenge detection/waiting, Turnstile CDP clicking, and clearance verification.
 - `assets/cf-turnstile-patcher/`: bundled Chrome extension for CDP `screenX/screenY` correction and Shadow DOM checkbox geometry.

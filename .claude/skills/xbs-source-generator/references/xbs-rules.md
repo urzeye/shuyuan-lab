@@ -7,15 +7,12 @@ Return one source object with these fields:
 ```json
 {
   "sourceName": "站点名称",
-  "sourceUrl": "https://example.com/",
+  "sourceUrl": "https://example.com",
   "enable": 1,
   "weight": "9000",
   "miniAppVersion": "2.53.2",
-  "lastModifyTime": "0",
-  "desc": "由 Agent 根据实测页面生成",
-  "password": "",
+  "lastModifyTime": "1700000000.000000",
   "sourceType": "text",
-  "httpHeaders": "",
   "searchBook": {},
   "bookDetail": {},
   "chapterList": {},
@@ -37,10 +34,11 @@ Each of `searchBook`, `bookDetail`, `chapterList`, and `chapterContent` uses:
   "actionID": "<same as object key>",
   "parserID": "DOM",
   "responseFormatType": "html",
-  "host": "https://example.com",
-  "validConfig": ""
+  "host": "https://example.com"
 }
 ```
+
+Do not add `validConfig`, `httpHeaders`, `requestInfo`, or any other field unless the evidence proves it is needed.
 
 ## Required rule fields
 
@@ -104,7 +102,11 @@ Do not add unobserved ad phrases. Do not use a `filter` property.
 - `actionID` equals its containing rule key.
 - `status`, not `state`.
 - `lastChapterTitle`, not `lastChapter`.
-- `weight` and `lastModifyTime` are strings for broad compatibility.
+- `weight` and `lastModifyTime` are strings for broad compatibility. `lastModifyTime` must be a current Unix timestamp with microsecond precision (e.g. `"1700000000.000000"`), never `"0"`.
+- `sourceUrl` must not have a trailing slash.
+- `desc` is only emitted when the source has a real human-written description. Omit or use `""` otherwise — never inject auto-generated filler text.
+- `password` is only emitted when a source actually needs one. Omit otherwise.
+- `httpHeaders` is only emitted when one or more required headers are proven by evidence. When present it must be a JSON object `{}`, never a string. When absent, the App treats it as no global headers.
 - No browser cookies, Cloudflare tokens, API keys, proxy credentials, or machine paths appear in the source JSON.
 - External discovery engines are evidence-only. Their URLs and request syntax must never be emitted as the target site's `searchBook.requestInfo`.
 - When native search cannot be proven, keep the limitation in `warnings` rather than fabricating a working search rule from the discovered detail URL.

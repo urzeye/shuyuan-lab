@@ -5,4 +5,4 @@ dist/
 .env
 .runtime/
 dist-server/
-69shuba.json
+.playwright-mcp/

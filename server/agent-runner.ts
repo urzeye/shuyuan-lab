@@ -199,7 +199,7 @@ export async function* runSourceAgent(
 页面采集已完成，证据文件位于：
 ${evidencePath}
 
-直接读取 evidence.json 和必要的 HTML 快照，按 skill 流程逐项运行 inspect 命令验证 XPath。不需要再运行 collect 命令。最终输出必须符合结构化 schema。不要修改项目文件，不要把 Cookie、Cloudflare token、API key 或本机绝对路径写入 source_json。`
+直接读取 evidence.json 和必要的 HTML 快照，按 skill 流程逐项运行 inspect 命令验证 XPath。不需要再运行 collect 命令。最终输出必须符合结构化 schema。分析完成后，将 source_json 写入 ${taskDir} 目录下的 <sourceName>.json 并调用 scripts/xbs-encode.mjs 转为 <sourceName>.xbs。不要修改项目文件，不要把 Cookie、Cloudflare token、API key 或本机绝对路径写入 source_json。`
     : `使用 xbs-source-generator skill 为小说站点生成香色闺阁书源。
 
 目标站点：${requestedUrl.href}
@@ -209,7 +209,7 @@ ${evidencePath}
 必须先原样运行下面的命令，不要改用 curl、WebFetch 或其他网络工具：
 ${collectCommand}
 
-随后读取 evidence.json 和必要的 HTML 快照，按 skill 流程逐项运行 inspect 命令验证 XPath。最终输出必须符合结构化 schema。不要修改项目文件，不要把 Cookie、Cloudflare token、API key 或本机绝对路径写入 source_json。`;
+随后读取 evidence.json 和必要的 HTML 快照，按 skill 流程逐项运行 inspect 命令验证 XPath。最终输出必须符合结构化 schema。分析完成后，将 source_json 写入 ${taskDir} 目录下的 <sourceName>.json 并调用 scripts/xbs-encode.mjs 转为 <sourceName>.xbs。不要修改项目文件，不要把 Cookie、Cloudflare token、API key 或本机绝对路径写入 source_json。`;
 
   const stream = query({
     prompt,
@@ -262,6 +262,7 @@ ${collectCommand}
     finalMessage.structured_output as AgentStructuredResult,
     requestedUrl,
   );
+  const sourcePath = path.join(taskDir, "source.json");
   await mkdir(taskDir, { recursive: true });
   await writeFile(
     resultPath,
@@ -275,6 +276,8 @@ ${collectCommand}
     }),
     "utf8",
   );
+  const sourceJsonStr = JSON.stringify(normalized.source_json, null, 2);
+  await writeFile(sourcePath, sourceJsonStr, "utf8");
   yield {
     type: "step",
     step: "agent",
