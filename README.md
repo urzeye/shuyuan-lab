@@ -6,6 +6,8 @@
 [![Fork](https://img.shields.io/badge/Fork-仓库-181717?logo=github)](https://github.com/urzeye/shuyuan-lab/fork)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
+<img src="assets/github-social.png" alt="shuyuan-lab" width="100%" />
+
 ---
 
 > [!IMPORTANT]
