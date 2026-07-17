@@ -341,9 +341,9 @@ async function startGenerate() {
   if (!siteUrl.value) return;
   resumeReady.value = false;
   generator.reset();
-  await generator.generate(
+  await generator.generateForSite(
     siteUrl.value.trim(),
-    testBook.value.trim() || "斗罗大陆",
+    testBook.value.trim(),
   );
 }
 

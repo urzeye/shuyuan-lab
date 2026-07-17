@@ -75,6 +75,33 @@ function parseFrames(buffer: string): { frames: AgentEvent[]; rest: string } {
 
 const TASK_KEY = "shuyuan_lab_task";
 
+export interface StoredAgentTask {
+  taskId: string;
+  status: "done" | "evidence_ready" | "collecting" | "not_found";
+  siteUrl: string;
+  testBook: string;
+  result?: {
+    source_json: Record<string, unknown>;
+    evidence?: GeneratedSource["evidence"];
+    warnings?: string[];
+    summary?: string;
+  };
+  cost?: number;
+  duration?: number;
+}
+
+function normalizeSiteUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    if (url.pathname !== "/") url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    url.searchParams.sort();
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
 export function useAiSourceGenerator() {
   const steps = ref<GenerateStep[]>([]);
   const running = ref(false);
@@ -93,7 +120,34 @@ export function useAiSourceGenerator() {
     try { localStorage.setItem(TASK_KEY, id); } catch { /* noop */ }
   }
   function clearTaskId() {
+    activeTaskId.value = null;
     try { localStorage.removeItem(TASK_KEY); } catch { /* noop */ }
+  }
+
+  async function getStoredTask(): Promise<StoredAgentTask | null> {
+    const taskId = activeTaskId.value || loadTaskId();
+    if (!taskId) return null;
+    activeTaskId.value = taskId;
+    try {
+      const res = await fetch(`/api/agent/tasks/${encodeURIComponent(taskId)}`);
+      if (!res.ok) return null;
+      const data = await res.json() as StoredAgentTask;
+      if (data.status === "not_found") {
+        clearTaskId();
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  async function findRestorableTask(siteUrl: string): Promise<StoredAgentTask | null> {
+    const task = await getStoredTask();
+    const requested = normalizeSiteUrl(siteUrl);
+    const stored = task ? normalizeSiteUrl(task.siteUrl || "") : null;
+    if (!task || !requested || !stored || requested !== stored) return null;
+    return task;
   }
 
   function setStep(id: string, patch: Partial<GenerateStep>) {
@@ -257,31 +311,48 @@ export function useAiSourceGenerator() {
     error.value = null;
   }
 
-  async function restoreTask(): Promise<{ siteUrl: string; testBook: string; resume: boolean } | null> {
-    if (!activeTaskId.value) return null;
-    try {
-      const res = await fetch(`/api/agent/tasks/${activeTaskId.value}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      if (data.status === "done" && data.result) {
-        result.value = {
-          raw: data.result.source_json,
-          taskId: data.taskId,
-          summary: data.result.summary,
-          cost: data.cost,
-          duration: data.duration,
-        };
-        steps.value = initialSteps().map((step) => ({ ...step, status: "done" }));
-        return { siteUrl: data.siteUrl || "", testBook: data.testBook || "", resume: false };
-      }
-      if (data.status === "evidence_ready") {
-        return { siteUrl: data.siteUrl || "", testBook: "", resume: true };
-      }
-      return null;
-    } catch {
-      return null;
-    }
+  function applyStoredResult(task: StoredAgentTask): boolean {
+    if (task.status !== "done" || !task.result) return false;
+    const warnings = task.result.warnings || [];
+    result.value = {
+      raw: task.result.source_json,
+      taskId: task.taskId,
+      warning: warnings.length ? warnings.join("；") : undefined,
+      evidence: task.result.evidence,
+      summary: task.result.summary,
+      cost: task.cost,
+      duration: task.duration,
+    };
+    steps.value = initialSteps().map((step) => ({ ...step, status: "done" }));
+    return true;
   }
 
-  return { steps, running, streamText, result, error, activeTaskId, generate, restoreTask, stop, reset };
+  async function restoreTask(): Promise<{ siteUrl: string; testBook: string; resume: boolean } | null> {
+    const task = await getStoredTask();
+    if (!task) return null;
+    if (applyStoredResult(task)) {
+      return { siteUrl: task.siteUrl, testBook: task.testBook, resume: false };
+    }
+    if (task.status === "evidence_ready" || task.status === "collecting") {
+      return { siteUrl: task.siteUrl, testBook: task.testBook, resume: true };
+    }
+    return null;
+  }
+
+  async function generateForSite(
+    siteUrl: string,
+    testBook: string,
+  ): Promise<GeneratedSource | null> {
+    const task = await findRestorableTask(siteUrl);
+    if (task && applyStoredResult(task)) return result.value;
+    const canResume = task?.status === "evidence_ready" || task?.status === "collecting";
+    const requestedBook = task?.testBook.trim() || testBook.trim() || "斗罗大陆";
+    return generate(
+      siteUrl,
+      requestedBook,
+      canResume ? task.taskId : undefined,
+    );
+  }
+
+  return { steps, running, streamText, result, error, activeTaskId, generate, generateForSite, findRestorableTask, restoreTask, stop, reset };
 }

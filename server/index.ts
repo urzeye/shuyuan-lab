@@ -3,9 +3,9 @@ import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { runSourceAgent } from "./agent-runner.js";
 import type { AgentEvent, GenerateRequest } from "./agent-runner.js";
+import { readStoredTask, TASK_ID_PATTERN } from "./task-store.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -26,39 +26,38 @@ app.get("/api/agent/health", (_req, res) => {
 
 app.get("/api/agent/tasks/:taskId", async (req, res) => {
   const taskId = req.params.taskId;
-  if (!/^[a-f0-9-]{36}$/.test(taskId)) {
+  if (!TASK_ID_PATTERN.test(taskId)) {
     res.status(400).json({ error: "invalid taskId" });
     return;
   }
-  const taskDir = path.join(process.cwd(), ".runtime", "agent-tasks", taskId);
-  const resultPath = path.join(taskDir, "result.json");
-  const evidencePath = path.join(taskDir, "evidence.json");
 
-  if (existsSync(resultPath)) {
-    const cached = JSON.parse(await readFile(resultPath, "utf8"));
-    res.json({ status: "done", ...cached });
-    return;
-  }
-  if (existsSync(evidencePath)) {
-    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-    const requiredSnapshots = ["search.html", "detail.html", "chapters.html", "content.html"];
-    const chainComplete = requiredSnapshots.every((name) =>
-      existsSync(path.join(taskDir, name)),
-    );
+  const task = await readStoredTask(taskId);
+  if (task.status === "done" && task.cached) {
     res.json({
-      status: chainComplete ? "evidence_ready" : "collecting",
-      siteUrl: evidence.site?.requested_url || "",
-      chain: evidence.chain || {},
+      status: task.status,
+      taskId,
+      siteUrl: task.siteUrl,
+      testBook: task.testBook,
+      result: task.cached.result,
+      cost: task.cached.cost,
+      duration: task.cached.duration,
     });
     return;
   }
-  res.json({ status: "not_found" });
+
+  res.json({
+    status: task.status,
+    taskId,
+    siteUrl: task.siteUrl,
+    testBook: task.testBook,
+    chain: task.evidence?.chain || {},
+  });
 });
 
 app.post("/api/agent/generate", async (req, res) => {
   const input = req.body as GenerateRequest;
   const taskId =
-    input.taskId && /^[a-f0-9-]{36}$/.test(input.taskId)
+    input.taskId && TASK_ID_PATTERN.test(input.taskId)
       ? input.taskId
       : randomUUID();
 

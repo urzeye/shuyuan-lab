@@ -450,6 +450,7 @@ async function collect(args) {
       hostname: site.hostname,
       captured_at: new Date().toISOString(),
     },
+    testBook: args.book,
     cloudflare: {
       challenge_detected: false,
       challenge_cleared: true,

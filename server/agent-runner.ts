@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type {
@@ -9,6 +8,7 @@ import type {
   SDKResultMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { generatedSourceSchema } from "./source-schema.js";
+import { claimTaskInput } from "./task-store.js";
 import type { AgentStructuredResult } from "./source-schema.js";
 import { normalizeAndValidateResult } from "./source-validator.js";
 
@@ -35,8 +35,6 @@ export interface AgentEvent {
 const projectRoot = path.resolve(process.cwd());
 const collectorRelative =
   ".claude/skills/xbs-source-generator/scripts/collect-site.mjs";
-const collectorAbsolute = path.join(projectRoot, collectorRelative);
-const runtimeRoot = path.join(projectRoot, ".runtime");
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
@@ -134,29 +132,27 @@ export async function* runSourceAgent(
 ): AsyncGenerator<AgentEvent> {
   const requestedUrl = assertGenerateInput(input);
   const taskId = input.taskId || randomUUID();
-  const taskDir = path.join(runtimeRoot, "agent-tasks", taskId);
+  const storedTask = await claimTaskInput(taskId, requestedUrl, input.testBook);
+  const taskDir = storedTask.taskDir;
   const resultPath = path.join(taskDir, "result.json");
   const evidencePath = path.join(taskDir, "evidence.json");
 
-  // 已有缓存结果，直接返回
-  if (existsSync(resultPath)) {
-    const cached = JSON.parse(await readFile(resultPath, "utf8"));
+  // 已有缓存结果，且 taskId 与本次站点/测试书名匹配，直接返回。
+  if (storedTask.status === "done" && storedTask.cached) {
+    const cached = storedTask.cached;
     yield { type: "meta", taskId };
     yield {
       type: "result",
-      result: cached.result,
+      taskId,
+      result: cached.result as AgentStructuredResult,
       cost: cached.cost,
       duration: cached.duration,
     };
     return;
   }
 
-  // 已有完整快照文件（search/detail/chapters/content.html），跳过采集
-  let skipCollect = false;
-  const requiredSnapshots = ["search.html", "detail.html", "chapters.html", "content.html"];
-  if (requiredSnapshots.every((name) => existsSync(path.join(taskDir, name)))) {
-    skipCollect = true;
-  }
+  // 已有完整页面证据时仅恢复 Agent 分析，不重复浏览器采集。
+  const skipCollect = storedTask.status === "evidence_ready";
 
   const collectCommand = [
     "node",

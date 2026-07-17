@@ -40,7 +40,7 @@ for (const relativePath of requiredFiles) {
   });
 }
 
-const skillMarkdown = await readFile(path.join(skillRoot, "SKILL.md"), "utf8");
+const skillMarkdown = (await readFile(path.join(skillRoot, "SKILL.md"), "utf8")).replace(/\r\n/g, "\n");
 const frontmatter = skillMarkdown.match(/^---\n([\s\S]*?)\n---\n/);
 if (!frontmatter) throw new Error("SKILL.md must start with YAML frontmatter");
 if (!/^name:\s*xbs-source-generator\s*$/m.test(frontmatter[1])) {
