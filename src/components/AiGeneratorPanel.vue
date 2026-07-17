@@ -64,6 +64,27 @@
               </div>
             </div>
 
+            <!-- Static hosting notice -->
+            <div
+              v-if="isStaticHosting"
+              class="config-card static-notice"
+            >
+              <div class="card-heading">
+                <span class="card-heading-icon">⚠️</span> AI 生成不可用
+              </div>
+              <div class="static-desc">
+                当前为 GitHub Pages 静态部署，不含后端 Agent 服务与浏览器环境。请在本地运行项目以使用 AI 生成书源功能。
+              </div>
+              <a
+                class="static-link"
+                href="https://github.com/urzeye/shuyuan-lab?tab=readme-ov-file#%E6%9C%AC%E5%9C%B0%E8%BF%90%E8%A1%8C"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                📖 查看本地运行指南
+              </a>
+            </div>
+
             <!-- Site + generate -->
             <div class="config-card generate-card">
               <div class="card-heading">
@@ -73,7 +94,7 @@
                 v-model="siteUrl"
                 class="ai-input"
                 placeholder="https://www.example.com"
-                :disabled="running"
+                :disabled="running || isStaticHosting"
                 @keyup.enter="startGenerate"
               />
               <label
@@ -85,11 +106,11 @@
                 v-model="testBook"
                 class="ai-input"
                 placeholder="斗罗大陆"
-                :disabled="running"
+                :disabled="running || isStaticHosting"
               />
               <button
                 class="btn-generate"
-                :disabled="running || !siteUrl"
+                :disabled="running || !siteUrl || isStaticHosting"
                 @click="startGenerate"
               >
                 <span
@@ -110,9 +131,31 @@
 
           <!-- ── Main Area ── -->
           <main class="ai-main">
-            <!-- Empty state -->
+            <!-- Empty state: static hosting -->
             <div
-              v-if="!steps.length && !errorMsg"
+              v-if="!steps.length && !errorMsg && isStaticHosting"
+              class="empty-state"
+            >
+              <div class="empty-icon">🚫</div>
+              <div class="empty-title">AI 生成不可用</div>
+              <div class="empty-desc">
+                GitHub Pages 为静态部署，不含 Agent 服务与浏览器环境。<br />
+                请 Clone 仓库后在本地运行以使用 AI 生成书源功能。
+              </div>
+              <a
+                class="btn btn-sm btn-primary mt"
+                href="https://github.com/urzeye/shuyuan-lab?tab=readme-ov-file#%E6%9C%AC%E5%9C%B0%E8%BF%90%E8%A1%8C"
+                target="_blank"
+                rel="noopener noreferrer"
+                style="text-decoration: none;"
+              >
+                本地运行指南 →
+              </a>
+            </div>
+
+            <!-- Empty state: local -->
+            <div
+              v-if="!steps.length && !errorMsg && !isStaticHosting"
               class="empty-state"
             >
               <div class="empty-icon">🤖</div>
@@ -269,6 +312,8 @@ const { steps, running, streamText, result, error: errorMsg } = generator;
 const siteUrl = ref("");
 const testBook = ref("");
 const copied = ref(false);
+
+const isStaticHosting = computed(() => location.hostname.includes("github.io"));
 
 async function startGenerate() {
   if (!siteUrl.value) return;
@@ -502,6 +547,28 @@ select.ai-input {
   padding: 2px;
   line-height: 1;
   color: var(--text3);
+}
+
+.static-notice {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.static-desc {
+  font-size: 11px;
+  color: #92400e;
+  margin-top: 4px;
+  line-height: 1.6;
+}
+.static-link {
+  display: inline-block;
+  font-size: 11px;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.static-link:hover {
+  text-decoration: underline;
 }
 
 .proxy-note {
