@@ -1,6 +1,6 @@
 # XBS 书源编辑器
 
-> 香色闺阁书源的可视化编辑、管理和 AI 自动生成工具。
+> 从网页到书源：AI Agent 驱动的香色闺阁书源实测生成与可视化编辑。
 
 [![在线编辑](https://img.shields.io/badge/在线编辑-GitHub_Pages-blue)](https://urzeye.github.io/shuyuan-lab)
 [![Fork](https://img.shields.io/badge/Fork-仓库-181717?logo=github)](https://github.com/urzeye/shuyuan-lab/fork)
