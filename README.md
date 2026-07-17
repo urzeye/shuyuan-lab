@@ -2,7 +2,7 @@
 
 > 香色闺阁（XBS / xiangseguige）书源的可视化编辑、管理和 Agent 自动生成工具。
 
-[![在线使用](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E4%BD%BF%E7%94%A8-GitHub%20Pages-blue)](https://urzeye.github.io/xiangseguige-source-editor)
+[![在线编辑](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E7%BC%96%E8%BE%91-%E4%B8%8D%E5%90%AB%20AI%20Agent-blue)](https://urzeye.github.io/xiangseguige-source-editor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
@@ -18,13 +18,16 @@
 | **真实浏览器采集** | 按首页、搜索、详情、目录和正文建立可回溯证据链 |
 | **Cloudflare 处理** | 持久化浏览器配置、JS Challenge 等待、Turnstile 扩展补丁、CDP 点击和 clearance 复用 |
 
-## 在线版与本地版
+## 运行方式
 
-GitHub Pages 在线版可使用 XBS 编辑、转换和管理功能。
+| 运行方式 | XBS 编辑/转换/管理 | AI 生成书源 |
+|---|---:|---:|
+| GitHub Pages 静态页面 | 支持 | 不支持 |
+| Fork 后本地运行 | 支持 | 支持 |
 
-AI 生成依赖 Node.js Agent 服务、Chrome/Chromium 和 Claude Agent SDK，静态页面无法独立提供这些能力。需要 AI 生成功能时请在本地或自建服务器运行完整项目。
+AI 生成依赖 Node.js Agent 服务、Chrome/Chromium、Claude Agent SDK 和本地持久化浏览器 profile，无法仅通过 GitHub Pages、Cloudflare Pages 等静态托管运行。推荐 Fork 本仓库后在本地运行完整项目。
 
-## 本地运行
+## Fork 后本地运行
 
 ### 环境要求
 
@@ -34,6 +37,16 @@ AI 生成依赖 Node.js Agent 服务、Chrome/Chromium 和 Claude Agent SDK，�
 - Anthropic API Key，或兼容 Claude Agent SDK 的网关凭据（由页面用户填写）
 
 ### 安装与启动
+
+1. 在 GitHub 页面右上角点击 **Fork**，将仓库 Fork 到自己的账号。
+2. 克隆自己的 Fork，并进入项目目录：
+
+```bash
+git clone https://github.com/<your-github-name>/xiangseguige-source-editor.git
+cd xiangseguige-source-editor
+```
+
+3. 安装依赖并启动开发环境：
 
 ```bash
 pnpm install
@@ -57,6 +70,14 @@ XBS_AGENT_BROWSER_CHANNEL=
 ```
 
 API Key、Base URL 和模型不通过项目文件或服务端环境变量配置，必须由页面用户填写。为便于重复使用，这三项和推理强度会保存在当前浏览器的 `localStorage`，不会写入仓库或服务端配置。
+
+后续同步上游更新时，可在自己的 Fork 中配置 upstream：
+
+```bash
+git remote add upstream https://github.com/urzeye/xiangseguige-source-editor.git
+git fetch upstream
+git merge upstream/main
+```
 
 ## 使用说明
 
@@ -136,11 +157,11 @@ pnpm skill:validate
 # 前端、Vite 和 Agent 服务 TypeScript 构建
 pnpm build
 
-# 生产模式同时启动 Web UI 与 Agent API
+# 在本地以生产模式同时启动 Web UI 与 Agent API
 pnpm start
 ```
 
-生产模式访问 `http://127.0.0.1:3001/xiangseguige-source-editor/`。根路径会自动跳转到该地址。
+生产模式访问 `http://127.0.0.1:3001/xiangseguige-source-editor/`。根路径会自动跳转到该地址。完整的 AI Agent 应通过该本地服务使用；单独上传 `dist/` 只能提供静态编辑功能。
 
 手动采集示例：
 
