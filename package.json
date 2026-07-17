@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k \"pnpm dev:agent\" \"pnpm dev:web\"",
     "dev:web": "vite --host 0.0.0.0",
-    "dev:agent": "tsx watch server/index.ts",
+    "dev:agent": "tsx server/index.ts",
     "build": "vue-tsc && vite build && tsc -p tsconfig.server.json",
     "start": "node dist-server/index.js",
     "preview": "vite preview",
