@@ -151,6 +151,15 @@ export async function* runSourceAgent(
     return;
   }
 
+  // 已有完整证据链，跳过采集，直接用已有证据分析
+  let skipCollect = false;
+  if (existsSync(evidencePath)) {
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    if (evidence.chain?.content) {
+      skipCollect = true;
+    }
+  }
+
   const collectCommand = [
     "node",
     collectorRelative,
@@ -184,10 +193,20 @@ export async function* runSourceAgent(
     type: "step",
     step: "agent",
     status: "running",
-    detail: "加载 xbs-source-generator skill",
+    detail: skipCollect ? "使用已有页面证据，跳过采集" : "加载 xbs-source-generator skill",
   };
   let finalMessage: SDKResultMessage | null = null;
-  const prompt = `使用 xbs-source-generator skill 为小说站点生成香色闺阁书源。
+  const prompt = skipCollect
+    ? `使用 xbs-source-generator skill 为小说站点生成香色闺阁书源。
+
+目标站点：${requestedUrl.href}
+测试书名：${input.testBook.trim()}
+
+页面采集已完成，证据文件位于：
+${evidencePath}
+
+直接读取 evidence.json 和必要的 HTML 快照，按 skill 流程逐项运行 inspect 命令验证 XPath。不需要再运行 collect 命令。最终输出必须符合结构化 schema。不要修改项目文件，不要把 Cookie、Cloudflare token、API key 或本机绝对路径写入 source_json。`
+    : `使用 xbs-source-generator skill 为小说站点生成香色闺阁书源。
 
 目标站点：${requestedUrl.href}
 测试书名：${input.testBook.trim()}

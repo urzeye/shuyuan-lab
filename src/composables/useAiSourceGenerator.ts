@@ -172,6 +172,7 @@ export function useAiSourceGenerator() {
   async function generate(
     siteUrl: string,
     testBook: string,
+    taskId?: string,
   ): Promise<GeneratedSource | null> {
     reset();
     running.value = true;
@@ -192,6 +193,7 @@ export function useAiSourceGenerator() {
         body: JSON.stringify({
           siteUrl,
           testBook: testBook.trim() || "斗罗大陆",
+          taskId: taskId || undefined,
         }),
       });
       if (!response.ok || !response.body) {
@@ -250,7 +252,7 @@ export function useAiSourceGenerator() {
     error.value = null;
   }
 
-  async function restoreTask(): Promise<{ siteUrl: string; testBook: string } | null> {
+  async function restoreTask(): Promise<{ siteUrl: string; testBook: string; resume: boolean } | null> {
     if (!activeTaskId.value) return null;
     try {
       const res = await fetch(`/api/agent/tasks/${activeTaskId.value}`);
@@ -265,7 +267,10 @@ export function useAiSourceGenerator() {
           duration: data.duration,
         };
         steps.value = initialSteps().map((step) => ({ ...step, status: "done" }));
-        return { siteUrl: data.siteUrl || "", testBook: data.testBook || "" };
+        return { siteUrl: data.siteUrl || "", testBook: data.testBook || "", resume: false };
+      }
+      if (data.status === "evidence_ready") {
+        return { siteUrl: data.siteUrl || "", testBook: "", resume: true };
       }
       return null;
     } catch {

@@ -29,19 +29,26 @@ app.get("/api/agent/tasks/:taskId", async (req, res) => {
     res.status(400).json({ error: "invalid taskId" });
     return;
   }
-  const resultPath = path.join(
-    process.cwd(),
-    ".runtime",
-    "agent-tasks",
-    taskId,
-    "result.json",
-  );
-  if (!existsSync(resultPath)) {
-    res.json({ status: "not_found" });
+  const taskDir = path.join(process.cwd(), ".runtime", "agent-tasks", taskId);
+  const resultPath = path.join(taskDir, "result.json");
+  const evidencePath = path.join(taskDir, "evidence.json");
+
+  if (existsSync(resultPath)) {
+    const cached = JSON.parse(await readFile(resultPath, "utf8"));
+    res.json({ status: "done", ...cached });
     return;
   }
-  const cached = JSON.parse(await readFile(resultPath, "utf8"));
-  res.json({ status: "done", ...cached });
+  if (existsSync(evidencePath)) {
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    const chainComplete = Boolean(evidence.chain?.content);
+    res.json({
+      status: chainComplete ? "evidence_ready" : "collecting",
+      siteUrl: evidence.site?.requested_url || "",
+      chain: evidence.chain || {},
+    });
+    return;
+  }
+  res.json({ status: "not_found" });
 });
 
 app.post("/api/agent/generate", async (req, res) => {

@@ -108,6 +108,16 @@
                 placeholder="斗罗大陆"
                 :disabled="running || isStaticHosting"
               />
+              <div
+                v-if="resumeReady && !running"
+                class="resume-hint"
+              >
+                <span>检测到上次未完成的生成任务，</span>
+                <a
+                  class="resume-link"
+                  @click="resumeTask"
+                >继续上次任务</a>
+              </div>
               <button
                 class="btn-generate"
                 :disabled="running || !siteUrl || isStaticHosting"
@@ -314,6 +324,7 @@ const testBook = ref("");
 const copied = ref(false);
 
 const isStaticHosting = computed(() => location.hostname.includes("github.io"));
+const resumeReady = ref(false);
 
 onMounted(async () => {
   if (!isStaticHosting.value) {
@@ -321,16 +332,29 @@ onMounted(async () => {
     if (restored) {
       siteUrl.value = restored.siteUrl;
       testBook.value = restored.testBook;
+      resumeReady.value = restored.resume;
     }
   }
 });
 
 async function startGenerate() {
   if (!siteUrl.value) return;
+  resumeReady.value = false;
   generator.reset();
   await generator.generate(
     siteUrl.value.trim(),
     testBook.value.trim() || "斗罗大陆",
+  );
+}
+
+function resumeTask() {
+  if (!activeTaskId.value || !siteUrl.value) return;
+  resumeReady.value = false;
+  generator.reset();
+  generator.generate(
+    siteUrl.value.trim(),
+    testBook.value.trim() || "斗罗大陆",
+    activeTaskId.value,
   );
 }
 
@@ -594,6 +618,22 @@ select.ai-input {
 }
 .note-link:hover {
   text-decoration: underline;
+}
+
+.resume-hint {
+  font-size: 11px;
+  color: var(--text2);
+  text-align: center;
+  margin-bottom: 4px;
+}
+.resume-link {
+  color: #2563eb;
+  cursor: pointer;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.resume-link:hover {
+  color: #1d4ed8;
 }
 
 .btn-generate {
