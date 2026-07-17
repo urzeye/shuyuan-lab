@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -13,7 +14,16 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const skillDir = path.resolve(scriptDir, "..");
 const extensionDir = path.join(skillDir, "assets", "cf-turnstile-patcher");
-const projectRoot = path.resolve(skillDir, "..", "..", "..");
+function findProjectRoot(startDir) {
+  let dir = startDir;
+  while (true) {
+    if (existsSync(path.join(dir, "package.json"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) throw new Error("找不到项目根目录（未找到 package.json）");
+    dir = parent;
+  }
+}
+const projectRoot = findProjectRoot(skillDir);
 
 function parseArgs(argv) {
   const args = { _: [] };

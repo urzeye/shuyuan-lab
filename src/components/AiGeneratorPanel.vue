@@ -53,56 +53,6 @@
         <div class="ai-body">
           <!-- ── Left Sidebar ── -->
           <aside class="ai-sidebar">
-            <!-- Agent config -->
-            <div class="config-card">
-              <div class="card-heading">
-                <span class="card-heading-icon">⚙</span> Agent 配置
-              </div>
-              <label class="field-label">Anthropic Base URL</label>
-              <input
-                v-model="localConfig.baseUrl"
-                class="ai-input"
-                placeholder="https://api.anthropic.com"
-                autocomplete="off"
-                @blur="saveConfig"
-              />
-              <label class="field-label">API Key</label>
-              <div class="input-wrap">
-                <input
-                  v-model="localConfig.apiKey"
-                  class="ai-input"
-                  :type="showKey ? 'text' : 'password'"
-                  placeholder="由当前用户填写，保存在浏览器本地"
-                  autocomplete="off"
-                  @blur="saveConfig"
-                />
-                <button
-                  class="eye-btn"
-                  @click="showKey = !showKey"
-                  type="button"
-                >
-                  {{ showKey ? "🙈" : "👁" }}
-                </button>
-              </div>
-              <label class="field-label">模型</label>
-              <input
-                v-model="localConfig.model"
-                class="ai-input"
-                placeholder="例如 claude-sonnet-4-5"
-                autocomplete="off"
-                @blur="saveConfig"
-              />
-              <label class="field-label">Agent 推理强度</label>
-              <select
-                v-model="localConfig.reasoningEffort"
-                class="ai-input thinking-effort"
-                @change="saveConfig"
-              >
-                <option value="max">max</option>
-                <option value="high">high</option>
-              </select>
-            </div>
-
             <!-- Browser collector -->
             <div class="config-card">
               <div class="card-heading">
@@ -139,7 +89,7 @@
               />
               <button
                 class="btn-generate"
-                :disabled="running || !siteUrl || !localConfig.baseUrl || !localConfig.apiKey || !localConfig.model"
+                :disabled="running || !siteUrl"
                 @click="startGenerate"
               >
                 <span
@@ -168,7 +118,7 @@
               <div class="empty-icon">🤖</div>
               <div class="empty-title">AI 书源生成器</div>
               <div class="empty-desc">
-                填写左侧配置，输入小说网站地址后点击「开始生成」。<br />
+                输入小说网站地址后点击「开始生成」。<br />
                 XBS Agent 将加载项目 Skill，使用真实浏览器采集页面、自动处理
                 Cloudflare，并实测 XPath 后生成书源。
               </div>
@@ -304,53 +254,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
-import { useAiConfigStore } from "@/stores/aiConfig";
+import { ref, computed } from "vue";
 import { useEditorStore } from "@/stores/editor";
 import { useAiSourceGenerator } from "@/composables/useAiSourceGenerator";
-import type { AiConfig } from "@/stores/aiConfig";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: "close"): void; (e: "added"): void }>();
 
-const aiConfigStore = useAiConfigStore();
 const editorStore = useEditorStore();
 const generator = useAiSourceGenerator();
 
 const { steps, running, streamText, result, error: errorMsg } = generator;
 
-const localConfig = ref<AiConfig>({ ...aiConfigStore.config });
 const siteUrl = ref("");
 const testBook = ref("");
-const showKey = ref(false);
 const copied = ref(false);
 
-watch(
-  () => props.open,
-  (val) => {
-    if (val) {
-      localConfig.value = { ...aiConfigStore.config };
-    }
-  },
-);
-
-function saveConfig() {
-  aiConfigStore.save(localConfig.value);
-}
-
 async function startGenerate() {
-  if (
-    !siteUrl.value ||
-    !localConfig.value.apiKey ||
-    !localConfig.value.baseUrl ||
-    !localConfig.value.model
-  ) return;
-  saveConfig();
+  if (!siteUrl.value) return;
   generator.reset();
   await generator.generate(
     siteUrl.value.trim(),
     testBook.value.trim() || "斗罗大陆",
-    localConfig.value,
   );
 }
 

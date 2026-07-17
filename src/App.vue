@@ -6,7 +6,7 @@
         <span class="logo-icon">📖</span>
         <div class="logo-text">
           <div class="logo-main">XBS 书源编辑器</div>
-          <div class="logo-sub">香色闺阁 xiangseguige</div>
+          <div class="logo-sub">书源工坊 shuyuan-lab</div>
         </div>
       </div>
 
@@ -31,7 +31,7 @@
 
       <div class="sidebar-footer">
         <a
-          href="https://github.com/urzeye/xiangseguige-source-editor"
+          href="https://github.com/urzeye/shuyuan-lab"
           target="_blank"
           rel="noopener noreferrer"
           class="footer-link"

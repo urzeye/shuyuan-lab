@@ -1,5 +1,4 @@
 import { ref } from "vue";
-import type { AiConfig } from "@/stores/aiConfig";
 
 export interface GenerateStep {
   id: string;
@@ -150,7 +149,6 @@ export function useAiSourceGenerator() {
   async function generate(
     siteUrl: string,
     testBook: string,
-    aiConfig: AiConfig,
   ): Promise<GeneratedSource | null> {
     reset();
     running.value = true;
@@ -166,10 +164,6 @@ export function useAiSourceGenerator() {
         body: JSON.stringify({
           siteUrl,
           testBook: testBook.trim() || "斗罗大陆",
-          apiKey: aiConfig.apiKey,
-          baseUrl: aiConfig.baseUrl,
-          model: aiConfig.model,
-          reasoningEffort: aiConfig.reasoningEffort,
         }),
       });
       if (!response.ok || !response.body) {

@@ -13,10 +13,6 @@ import { normalizeAndValidateResult } from "./source-validator.js";
 export interface GenerateRequest {
   siteUrl: string;
   testBook: string;
-  apiKey: string;
-  baseUrl: string;
-  model: string;
-  reasoningEffort?: "high" | "max";
 }
 
 export interface AgentEvent {
@@ -49,19 +45,6 @@ function assertGenerateInput(input: GenerateRequest): URL {
   if (url.username || url.password) throw new Error("站点 URL 不能包含凭据");
   if (!input.testBook?.trim()) throw new Error("测试书名不能为空");
   if (input.testBook.length > 80) throw new Error("测试书名过长");
-  if (!input.apiKey?.trim()) throw new Error("请在页面填写 API Key");
-  if (input.apiKey.length > 512) throw new Error("API Key 过长");
-  if (!input.baseUrl?.trim())
-    throw new Error("请在页面填写 Anthropic Base URL");
-  const baseUrl = new URL(input.baseUrl);
-  if (baseUrl.protocol !== "https:" && baseUrl.hostname !== "localhost") {
-    throw new Error("Anthropic Base URL 必须使用 HTTPS");
-  }
-  if (baseUrl.username || baseUrl.password) {
-    throw new Error("Anthropic Base URL 不能包含凭据");
-  }
-  if (!input.model?.trim()) throw new Error("请在页面填写模型名称");
-  if (input.model.length > 160) throw new Error("模型名称过长");
   return url;
 }
 
@@ -161,12 +144,19 @@ export async function* runSourceAgent(
     shellQuote(evidencePath),
   ].join(" ");
 
+  const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+  const baseUrl = process.env.ANTHROPIC_BASE_URL?.trim() || "https://api.anthropic.com";
+  const model = process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6";
+  const reasoningEffort = process.env.ANTHROPIC_REASONING_EFFORT?.trim() || "high";
+
+  if (!apiKey) throw new Error("请在 .env 中配置 ANTHROPIC_API_KEY");
+
   const env: Record<string, string | undefined> = {
     ...process.env,
-    ANTHROPIC_API_KEY: input.apiKey.trim(),
+    ANTHROPIC_API_KEY: apiKey,
     ANTHROPIC_AUTH_TOKEN: undefined,
-    ANTHROPIC_BASE_URL: input.baseUrl.trim().replace(/\/$/, ""),
-    CLAUDE_AGENT_SDK_CLIENT_APP: "xbs-source-generator/0.2.0",
+    ANTHROPIC_BASE_URL: baseUrl.replace(/\/$/, ""),
+    CLAUDE_AGENT_SDK_CLIENT_APP: "shuyuan-lab/0.2.0",
   };
 
   yield {
@@ -204,8 +194,8 @@ ${collectCommand}
       outputFormat: { type: "json_schema", schema: generatedSourceSchema },
       maxTurns: 35,
       maxBudgetUsd: 3,
-      model: input.model.trim(),
-      effort: input.reasoningEffort === "max" ? "max" : "high",
+      model,
+      effort: reasoningEffort === "max" ? "max" : "high",
       abortController,
       persistSession: false,
       env,

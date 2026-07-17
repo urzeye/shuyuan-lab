@@ -18,8 +18,7 @@ app.get("/api/agent/health", (_req, res) => {
     status: "ok",
     sdk: "@anthropic-ai/claude-agent-sdk",
     skill: "xbs-source-generator",
-    credentials: "per-request",
-    model: "per-request",
+    credentials: "dotenv",
   });
 });
 
@@ -51,7 +50,7 @@ app.post("/api/agent/generate", async (req, res) => {
 });
 
 const distRoot = path.resolve(process.cwd(), "dist");
-const webBase = "/xiangseguige-source-editor";
+const webBase = "/shuyuan-lab";
 if (existsSync(path.join(distRoot, "index.html"))) {
   app.use(webBase, express.static(distRoot));
   app.get("/", (_req, res) => res.redirect(`${webBase}/`));

@@ -130,7 +130,7 @@ export default defineConfig({
       },
     },
   ],
-  base: isProd ? "/xiangseguige-source-editor/" : "/",
+  base: isProd ? "/shuyuan-lab/" : "/",
   resolve: {
     alias: { "@": resolve(__dirname, "src") },
   },
