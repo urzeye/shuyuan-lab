@@ -199,6 +199,11 @@ export function useAiSourceGenerator() {
       if (!response.ok || !response.body) {
         throw new Error(`Agent 服务请求失败: HTTP ${response.status}`);
       }
+      const headerTaskId = response.headers.get("X-Task-Id");
+      if (headerTaskId) {
+        activeTaskId.value = headerTaskId;
+        saveTaskId(headerTaskId);
+      }
       setStep("service", { status: "done", detail: "SSE 已连接" });
       setStep("skill", { status: "running" });
 

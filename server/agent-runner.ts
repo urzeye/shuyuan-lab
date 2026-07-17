@@ -230,7 +230,7 @@ ${collectCommand}
         ],
       },
       outputFormat: { type: "json_schema", schema: generatedSourceSchema },
-      maxTurns: 35,
+      maxTurns: 60,
       maxBudgetUsd: 3,
       model,
       effort: reasoningEffort === "max" ? "max" : "high",

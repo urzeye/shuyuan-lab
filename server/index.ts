@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import "dotenv/config";
 import express from "express";
 import path from "node:path";
@@ -55,10 +56,17 @@ app.get("/api/agent/tasks/:taskId", async (req, res) => {
 });
 
 app.post("/api/agent/generate", async (req, res) => {
+  const input = req.body as GenerateRequest;
+  const taskId =
+    input.taskId && /^[a-f0-9-]{36}$/.test(input.taskId)
+      ? input.taskId
+      : randomUUID();
+
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Task-Id", taskId);
   res.flushHeaders();
 
   const abortController = new AbortController();
@@ -68,8 +76,10 @@ app.post("/api/agent/generate", async (req, res) => {
   });
 
   try {
-    const input = req.body as GenerateRequest;
-    for await (const event of runSourceAgent(input, abortController)) {
+    for await (const event of runSourceAgent(
+      { ...input, taskId },
+      abortController,
+    )) {
       sendEvent(res, event);
     }
   } catch (error) {
