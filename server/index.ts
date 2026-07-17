@@ -40,11 +40,10 @@ app.get("/api/agent/tasks/:taskId", async (req, res) => {
   }
   if (existsSync(evidencePath)) {
     const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-    const pageRoles = new Set(
-      (evidence.pages || []).map((p: { role: string }) => p.role),
+    const requiredSnapshots = ["search.html", "detail.html", "chapters.html", "content.html"];
+    const chainComplete = requiredSnapshots.every((name) =>
+      existsSync(path.join(taskDir, name)),
     );
-    const requiredRoles = ["search", "detail", "chapters", "content"];
-    const chainComplete = requiredRoles.every((role) => pageRoles.has(role));
     res.json({
       status: chainComplete ? "evidence_ready" : "collecting",
       siteUrl: evidence.site?.requested_url || "",

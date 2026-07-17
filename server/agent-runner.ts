@@ -151,16 +151,11 @@ export async function* runSourceAgent(
     return;
   }
 
-  // 已有完整证据链（pages 包含 search/detail/chapters/content），跳过采集
+  // 已有完整快照文件（search/detail/chapters/content.html），跳过采集
   let skipCollect = false;
-  if (existsSync(evidencePath)) {
-    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-    const pageRoles = new Set(
-      (evidence.pages || []).map((p: { role: string }) => p.role),
-    );
-    if (["search", "detail", "chapters", "content"].every((role) => pageRoles.has(role))) {
-      skipCollect = true;
-    }
+  const requiredSnapshots = ["search.html", "detail.html", "chapters.html", "content.html"];
+  if (requiredSnapshots.every((name) => existsSync(path.join(taskDir, name)))) {
+    skipCollect = true;
   }
 
   const collectCommand = [
