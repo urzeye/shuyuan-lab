@@ -157,6 +157,11 @@ export function useAiSourceGenerator() {
     controller = new AbortController();
 
     try {
+      const health = await fetch("/api/agent/health", { signal: controller.signal }).catch(() => null);
+      if (!health?.ok) {
+        throw new Error("Agent 服务未启动，请使用 pnpm dev 同时启动前后端");
+      }
+
       const response = await fetch("/api/agent/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
