@@ -777,10 +777,14 @@ select.ai-input {
 
 /* Stream Card */
 .stream-card {
-  background: #0f1117;
+  background: #1a1b26;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid #2a2d3a;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .stream-card-header {
   display: flex;
@@ -793,6 +797,7 @@ select.ai-input {
   border-bottom: 1px solid #2a2d3a;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
 .live-dot {
   width: 7px;
@@ -807,12 +812,15 @@ select.ai-input {
   font-family: "JetBrains Mono", "Fira Code", "Menlo", monospace;
   padding: 12px 14px;
   margin: 0;
-  max-height: 260px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-all;
   color: #e2e8f0;
   line-height: 1.6;
+  scrollbar-width: thin;
+  scrollbar-color: #3a3b4c transparent;
 }
 
 /* Error Card */
@@ -846,6 +854,10 @@ select.ai-input {
   border: 1px solid #86efac;
   border-radius: 10px;
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .result-card-header {
   display: flex;
@@ -856,6 +868,7 @@ select.ai-input {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   background: #f0fdf4;
+  flex-shrink: 0;
 }
 .result-title-row {
   display: flex;
@@ -907,14 +920,15 @@ select.ai-input {
 }
 .result-json {
   width: 100%;
-  min-height: 280px;
+  flex: 1;
+  min-height: 0;
   font-family: "JetBrains Mono", "Fira Code", "Menlo", monospace;
   font-size: 12px;
   padding: 14px 16px;
   border: none;
   background: #fafafa;
   color: var(--text);
-  resize: vertical;
+  resize: none;
   box-sizing: border-box;
   line-height: 1.65;
   outline: none;
@@ -926,6 +940,7 @@ select.ai-input {
   color: var(--text2);
   border-bottom: 1px solid var(--border);
   background: #fbfefc;
+  flex-shrink: 0;
 }
 
 /* Transition */
@@ -939,5 +954,33 @@ select.ai-input {
 .ai-panel-slide-leave-to {
   opacity: 0;
   transform: translateY(12px);
+}
+</style>
+
+<style>
+/* Scrollbar — unscoped so ::-webkit-scrollbar pseudo-elements work */
+.stream-body::-webkit-scrollbar,
+.result-json::-webkit-scrollbar {
+  width: 6px;
+}
+.stream-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.stream-body::-webkit-scrollbar-thumb {
+  background: #3a3b4c;
+  border-radius: 3px;
+}
+.stream-body::-webkit-scrollbar-thumb:hover {
+  background: #4a4b5c;
+}
+.result-json::-webkit-scrollbar-track {
+  background: transparent;
+}
+.result-json::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+.result-json::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 </style>
