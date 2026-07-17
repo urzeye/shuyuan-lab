@@ -297,7 +297,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useEditorStore } from "@/stores/editor";
 import { useAiSourceGenerator } from "@/composables/useAiSourceGenerator";
 
@@ -307,7 +307,7 @@ const emit = defineEmits<{ (e: "close"): void; (e: "added"): void }>();
 const editorStore = useEditorStore();
 const generator = useAiSourceGenerator();
 
-const { steps, running, streamText, result, error: errorMsg } = generator;
+const { steps, running, streamText, result, error: errorMsg, activeTaskId } = generator;
 
 const siteUrl = ref("");
 const testBook = ref("");
@@ -315,12 +315,19 @@ const copied = ref(false);
 
 const isStaticHosting = computed(() => location.hostname.includes("github.io"));
 
+onMounted(async () => {
+  if (!isStaticHosting.value) {
+    await generator.restoreTask();
+  }
+});
+
 async function startGenerate() {
   if (!siteUrl.value) return;
   generator.reset();
   await generator.generate(
     siteUrl.value.trim(),
     testBook.value.trim() || "斗罗大陆",
+    activeTaskId.value || undefined,
   );
 }
 

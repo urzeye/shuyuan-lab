@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type {
@@ -13,16 +15,18 @@ import { normalizeAndValidateResult } from "./source-validator.js";
 export interface GenerateRequest {
   siteUrl: string;
   testBook: string;
+  taskId?: string;
 }
 
 export interface AgentEvent {
-  type: "step" | "log" | "tool" | "result" | "error";
+  type: "step" | "log" | "tool" | "result" | "error" | "meta";
   step?: string;
   status?: "running" | "done" | "error";
   detail?: string;
   content?: string;
   toolName?: string;
   toolInput?: unknown;
+  taskId?: string;
   result?: AgentStructuredResult;
   cost?: number;
   duration?: number;
@@ -129,9 +133,24 @@ export async function* runSourceAgent(
   abortController: AbortController,
 ): AsyncGenerator<AgentEvent> {
   const requestedUrl = assertGenerateInput(input);
-  const taskId = randomUUID();
+  const taskId = input.taskId || randomUUID();
   const taskDir = path.join(runtimeRoot, "agent-tasks", taskId);
+  const resultPath = path.join(taskDir, "result.json");
   const evidencePath = path.join(taskDir, "evidence.json");
+
+  // 已有缓存结果，直接返回
+  if (existsSync(resultPath)) {
+    const cached = JSON.parse(await readFile(resultPath, "utf8"));
+    yield { type: "meta", taskId };
+    yield {
+      type: "result",
+      result: cached.result,
+      cost: cached.cost,
+      duration: cached.duration,
+    };
+    return;
+  }
+
   const collectCommand = [
     "node",
     collectorRelative,
@@ -158,6 +177,8 @@ export async function* runSourceAgent(
     ANTHROPIC_BASE_URL: baseUrl.replace(/\/$/, ""),
     CLAUDE_AGENT_SDK_CLIENT_APP: "shuyuan-lab/0.2.0",
   };
+
+  yield { type: "meta", taskId };
 
   yield {
     type: "step",
@@ -197,7 +218,6 @@ ${collectCommand}
       model,
       effort: reasoningEffort === "max" ? "max" : "high",
       abortController,
-      persistSession: false,
       env,
       systemPrompt: {
         type: "preset",
@@ -229,6 +249,17 @@ ${collectCommand}
     finalMessage.structured_output as AgentStructuredResult,
     requestedUrl,
   );
+  await mkdir(taskDir, { recursive: true });
+  await writeFile(
+    resultPath,
+    JSON.stringify({
+      taskId,
+      result: normalized,
+      cost: finalMessage.total_cost_usd,
+      duration: finalMessage.duration_ms,
+    }),
+    "utf8",
+  );
   yield {
     type: "step",
     step: "agent",
@@ -237,6 +268,7 @@ ${collectCommand}
   };
   yield {
     type: "result",
+    taskId,
     result: normalized,
     cost: finalMessage.total_cost_usd,
     duration: finalMessage.duration_ms,

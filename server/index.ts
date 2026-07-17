@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import path from "node:path";
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { runSourceAgent } from "./agent-runner.js";
 import type { AgentEvent, GenerateRequest } from "./agent-runner.js";
 
@@ -20,6 +21,27 @@ app.get("/api/agent/health", (_req, res) => {
     skill: "xbs-source-generator",
     credentials: "dotenv",
   });
+});
+
+app.get("/api/agent/tasks/:taskId", async (req, res) => {
+  const taskId = req.params.taskId;
+  if (!/^[a-f0-9-]{36}$/.test(taskId)) {
+    res.status(400).json({ error: "invalid taskId" });
+    return;
+  }
+  const resultPath = path.join(
+    process.cwd(),
+    ".runtime",
+    "agent-tasks",
+    taskId,
+    "result.json",
+  );
+  if (!existsSync(resultPath)) {
+    res.json({ status: "not_found" });
+    return;
+  }
+  const cached = JSON.parse(await readFile(resultPath, "utf8"));
+  res.json({ status: "done", ...cached });
 });
 
 app.post("/api/agent/generate", async (req, res) => {

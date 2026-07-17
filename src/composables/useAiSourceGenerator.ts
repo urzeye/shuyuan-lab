@@ -9,6 +9,7 @@ export interface GenerateStep {
 
 export interface GeneratedSource {
   raw: Record<string, unknown>;
+  taskId?: string;
   warning?: string;
   evidence?: {
     chain: Record<string, string>;
@@ -28,13 +29,14 @@ export interface GeneratedSource {
 }
 
 type AgentEvent = {
-  type: "step" | "log" | "tool" | "result" | "error";
+  type: "step" | "log" | "tool" | "result" | "error" | "meta";
   step?: string;
   status?: "running" | "done" | "error";
   detail?: string;
   content?: string;
   toolName?: string;
   toolInput?: { command?: string; file_path?: string };
+  taskId?: string;
   result?: {
     source_json: Record<string, unknown>;
     evidence: GeneratedSource["evidence"];
@@ -71,13 +73,28 @@ function parseFrames(buffer: string): { frames: AgentEvent[]; rest: string } {
   return { frames, rest };
 }
 
+const TASK_KEY = "shuyuan_lab_task";
+
 export function useAiSourceGenerator() {
   const steps = ref<GenerateStep[]>([]);
   const running = ref(false);
   const streamText = ref("");
   const result = ref<GeneratedSource | null>(null);
   const error = ref<string | null>(null);
+  const activeTaskId = ref<string | null>(loadTaskId());
   let controller: AbortController | null = null;
+
+  function loadTaskId(): string | null {
+    try {
+      return localStorage.getItem(TASK_KEY) || null;
+    } catch { return null; }
+  }
+  function saveTaskId(id: string) {
+    try { localStorage.setItem(TASK_KEY, id); } catch { /* noop */ }
+  }
+  function clearTaskId() {
+    try { localStorage.removeItem(TASK_KEY); } catch { /* noop */ }
+  }
 
   function setStep(id: string, patch: Partial<GenerateStep>) {
     const step = steps.value.find((item) => item.id === id);
@@ -100,6 +117,11 @@ export function useAiSourceGenerator() {
   }
 
   function handleEvent(event: AgentEvent) {
+    if (event.type === "meta" && event.taskId) {
+      activeTaskId.value = event.taskId;
+      saveTaskId(event.taskId);
+      return;
+    }
     if (event.type === "step") {
       setStep("skill", {
         status: event.status || "running",
@@ -137,6 +159,7 @@ export function useAiSourceGenerator() {
       const warnings = event.result.warnings || [];
       result.value = {
         raw: event.result.source_json,
+        taskId: event.taskId || activeTaskId.value || undefined,
         warning: warnings.length ? warnings.join("；") : undefined,
         evidence: event.result.evidence,
         summary: event.result.summary,
@@ -149,6 +172,7 @@ export function useAiSourceGenerator() {
   async function generate(
     siteUrl: string,
     testBook: string,
+    taskId?: string,
   ): Promise<GeneratedSource | null> {
     reset();
     running.value = true;
@@ -169,6 +193,7 @@ export function useAiSourceGenerator() {
         body: JSON.stringify({
           siteUrl,
           testBook: testBook.trim() || "斗罗大陆",
+          taskId: taskId || undefined,
         }),
       });
       if (!response.ok || !response.body) {
@@ -227,5 +252,28 @@ export function useAiSourceGenerator() {
     error.value = null;
   }
 
-  return { steps, running, streamText, result, error, generate, stop, reset };
+  async function restoreTask(): Promise<boolean> {
+    if (!activeTaskId.value) return false;
+    try {
+      const res = await fetch(`/api/agent/tasks/${activeTaskId.value}`);
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (data.status === "done" && data.result) {
+        result.value = {
+          raw: data.result.source_json,
+          taskId: data.taskId,
+          summary: data.result.summary,
+          cost: data.cost,
+          duration: data.duration,
+        };
+        steps.value = initialSteps().map((step) => ({ ...step, status: "done" }));
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  return { steps, running, streamText, result, error, activeTaskId, generate, restoreTask, stop, reset };
 }
