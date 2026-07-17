@@ -15,7 +15,7 @@ export const useEditorStore = defineStore("editor", () => {
   const sources = ref<BookSource[]>([]);
   const toasts = ref<ToastItem[]>([]);
   const isConverting = ref(false);
-  const activeTab = ref<"editor" | "sources" | "docs">("editor");
+  const activeTab = ref<"editor" | "sources" | "ai" | "docs">("editor");
 
   // ── Computed ───────────────────────────────────────
   const xbsSize = computed(() =>
@@ -294,7 +294,11 @@ export const useEditorStore = defineStore("editor", () => {
   function addSourceRaw(raw: Record<string, unknown>) {
     const sourceName = String(raw.sourceName ?? "未命名书源");
     const sourceUrl = String(raw.sourceUrl ?? "");
-    const key = `new-${Date.now()}`;
+    let key = sourceName || `new-${Date.now()}`;
+    let suffix = 2;
+    while (sources.value.some((source) => source._key === key)) {
+      key = `${sourceName || "new"}-${suffix++}`;
+    }
     sources.value.unshift({
       _key: key,
       sourceName,

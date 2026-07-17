@@ -134,6 +134,14 @@ export default defineConfig({
   resolve: {
     alias: { "@": resolve(__dirname, "src") },
   },
+  server: {
+    proxy: {
+      "/api/agent": {
+        target: "http://127.0.0.1:3001",
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,

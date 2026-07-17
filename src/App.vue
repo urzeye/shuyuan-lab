@@ -210,6 +210,16 @@
           </div>
         </div>
         <DocsView v-show="store.activeTab === 'docs'" />
+        <div
+          v-show="store.activeTab === 'ai'"
+          class="ai-view"
+        >
+          <AiGeneratorPanel
+            :open="store.activeTab === 'ai'"
+            @close="store.activeTab = 'editor'"
+            @added="store.activeTab = 'sources'"
+          />
+        </div>
       </div>
     </div>
 
@@ -223,6 +233,7 @@ import { useEditorStore } from "@/stores/editor";
 import EditorView from "@/views/EditorView.vue";
 import SourceTable from "@/components/SourceTable.vue";
 import DocsView from "@/views/DocsView.vue";
+import AiGeneratorPanel from "@/components/AiGeneratorPanel.vue";
 
 const xbsOpen = ref(false);
 const jsonOpen = ref(false);
@@ -245,6 +256,7 @@ const store = useEditorStore();
 const navItems = [
   { key: "editor", icon: "⚡", label: "格式转换" },
   { key: "sources", icon: "📚", label: "书源管理" },
+  { key: "ai", icon: "🤖", label: "AI 生成书源" },
   { key: "docs", icon: "📖", label: "规则文档" },
 ];
 
