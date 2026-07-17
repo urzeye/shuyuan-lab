@@ -53,16 +53,17 @@
         <div class="ai-body">
           <!-- ── Left Sidebar ── -->
           <aside class="ai-sidebar">
-            <!-- Model config -->
+            <!-- Agent config -->
             <div class="config-card">
               <div class="card-heading">
-                <span class="card-heading-icon">⚙</span> 模型配置
+                <span class="card-heading-icon">⚙</span> Agent 配置
               </div>
-              <label class="field-label">API Base URL</label>
+              <label class="field-label">Anthropic Base URL</label>
               <input
                 v-model="localConfig.baseUrl"
                 class="ai-input"
-                placeholder="https://api.deepseek.com"
+                placeholder="https://api.anthropic.com"
+                autocomplete="off"
                 @blur="saveConfig"
               />
               <label class="field-label">API Key</label>
@@ -71,7 +72,8 @@
                   v-model="localConfig.apiKey"
                   class="ai-input"
                   :type="showKey ? 'text' : 'password'"
-                  placeholder="sk-..."
+                  placeholder="由当前用户填写，保存在浏览器本地"
+                  autocomplete="off"
                   @blur="saveConfig"
                 />
                 <button
@@ -86,20 +88,12 @@
               <input
                 v-model="localConfig.model"
                 class="ai-input"
-                placeholder="deepseek-v4-pro"
+                placeholder="例如 claude-sonnet-4-5"
+                autocomplete="off"
                 @blur="saveConfig"
               />
-              <label class="field-label">思考参数</label>
+              <label class="field-label">Agent 推理强度</label>
               <select
-                v-model="localConfig.thinkingMode"
-                class="ai-input"
-                @change="saveConfig"
-              >
-                <option value="auto">自动兼容最高</option>
-                <option value="off">关闭扩展参数</option>
-              </select>
-              <select
-                v-if="localConfig.thinkingMode !== 'off'"
                 v-model="localConfig.reasoningEffort"
                 class="ai-input thinking-effort"
                 @change="saveConfig"
@@ -109,38 +103,14 @@
               </select>
             </div>
 
-            <!-- Proxy -->
+            <!-- Browser collector -->
             <div class="config-card">
               <div class="card-heading">
-                <span class="card-heading-icon">🔗</span> 页面抓取代理
+                <span class="card-heading-icon">🛡</span> 浏览器采集
               </div>
-              <select
-                v-model="proxyPreset"
-                class="ai-input"
-                @change="onProxyPresetChange"
-              >
-                <option value="dev">本地开发（/api/fetch-page）</option>
-                <option value="public">作者的 CF Worker</option>
-                <option value="custom">自定义 Worker URL</option>
-              </select>
-              <input
-                v-if="proxyPreset === 'custom'"
-                v-model="localConfig.proxyUrl"
-                class="ai-input"
-                style="margin-top: 6px"
-                placeholder="https://your.worker.dev"
-                @blur="saveConfig"
-              />
               <div class="proxy-note">
-                GitHub Pages 无后端，需代理抓取 HTML。
-                <br />
-                <a
-                  href="cf-worker/fetch-proxy.js"
-                  target="_blank"
-                  rel="noopener"
-                  class="note-link"
-                  >获取 Worker 脚本 ↗</a
-                >
+                由项目级 XBS Skill 启动持久化 Chrome。遇到 Cloudflare 时自动等待 JS
+                Challenge，并使用 Turnstile 补丁与 CDP 点击验证。所有页面阶段共享同一浏览器会话。
               </div>
             </div>
 
@@ -169,7 +139,7 @@
               />
               <button
                 class="btn-generate"
-                :disabled="running || !siteUrl || !localConfig.apiKey"
+                :disabled="running || !siteUrl || !localConfig.baseUrl || !localConfig.apiKey || !localConfig.model"
                 @click="startGenerate"
               >
                 <span
@@ -181,7 +151,7 @@
               <button
                 v-if="running"
                 class="btn-stop"
-                @click="generator.reset()"
+                @click="generator.stop()"
               >
                 停止
               </button>
@@ -199,7 +169,8 @@
               <div class="empty-title">AI 书源生成器</div>
               <div class="empty-desc">
                 填写左侧配置，输入小说网站地址后点击「开始生成」。<br />
-                AI 将自动抓取 HTML，分析页面结构并生成完整书源规则。
+                XBS Agent 将加载项目 Skill，使用真实浏览器采集页面、自动处理
+                Cloudflare，并实测 XPath 后生成书源。
               </div>
             </div>
 
@@ -263,7 +234,7 @@
             >
               <div class="stream-card-header">
                 <span class="live-dot"></span>
-                <span>模型实时输出</span>
+                <span>Agent 执行日志</span>
               </div>
               <pre class="stream-body">{{ streamText.slice(-3000) }}</pre>
             </div>
@@ -304,7 +275,20 @@
                   >
                     ↺ 重新生成
                   </button>
+                  <button
+                    class="ra-btn primary"
+                    @click="addToEditor"
+                  >
+                    添加到书源管理
+                  </button>
                 </div>
+              </div>
+              <div
+                v-if="result.summary"
+                class="result-summary"
+              >
+                {{ result.summary }}
+                <span v-if="result.duration"> · {{ Math.round(result.duration / 1000) }}s</span>
               </div>
               <textarea
                 class="result-json"
@@ -321,14 +305,16 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { useAiConfigStore, DEV_PROXY, PUBLIC_PROXY } from "@/stores/aiConfig";
+import { useAiConfigStore } from "@/stores/aiConfig";
+import { useEditorStore } from "@/stores/editor";
 import { useAiSourceGenerator } from "@/composables/useAiSourceGenerator";
 import type { AiConfig } from "@/stores/aiConfig";
 
 const props = defineProps<{ open: boolean }>();
-const emit = defineEmits<{ (e: "close"): void }>();
+const emit = defineEmits<{ (e: "close"): void; (e: "added"): void }>();
 
 const aiConfigStore = useAiConfigStore();
+const editorStore = useEditorStore();
 const generator = useAiSourceGenerator();
 
 const { steps, running, streamText, result, error: errorMsg } = generator;
@@ -339,29 +325,11 @@ const testBook = ref("");
 const showKey = ref(false);
 const copied = ref(false);
 
-function proxyToPreset(url: string): "dev" | "public" | "custom" {
-  if (url === DEV_PROXY) return "dev";
-  if (url === PUBLIC_PROXY) return "public";
-  return "custom";
-}
-
-const proxyPreset = ref<"dev" | "public" | "custom">(
-  proxyToPreset(localConfig.value.proxyUrl),
-);
-
-function onProxyPresetChange() {
-  if (proxyPreset.value === "dev") localConfig.value.proxyUrl = DEV_PROXY;
-  else if (proxyPreset.value === "public")
-    localConfig.value.proxyUrl = PUBLIC_PROXY;
-  saveConfig();
-}
-
 watch(
   () => props.open,
   (val) => {
     if (val) {
       localConfig.value = { ...aiConfigStore.config };
-      proxyPreset.value = proxyToPreset(localConfig.value.proxyUrl);
     }
   },
 );
@@ -371,7 +339,12 @@ function saveConfig() {
 }
 
 async function startGenerate() {
-  if (!siteUrl.value || !localConfig.value.apiKey) return;
+  if (
+    !siteUrl.value ||
+    !localConfig.value.apiKey ||
+    !localConfig.value.baseUrl ||
+    !localConfig.value.model
+  ) return;
   saveConfig();
   generator.reset();
   await generator.generate(
@@ -383,6 +356,13 @@ async function startGenerate() {
 
 function regenerate() {
   generator.reset();
+}
+
+function addToEditor() {
+  if (!result.value) return;
+  editorStore.addSourceRaw(result.value.raw);
+  editorStore.activeTab = "sources";
+  emit("added");
 }
 
 const resultJson = computed(() =>
@@ -946,6 +926,14 @@ select.ai-input {
   box-sizing: border-box;
   line-height: 1.65;
   outline: none;
+}
+.result-summary {
+  padding: 10px 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+  background: #fbfefc;
 }
 
 /* Transition */

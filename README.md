@@ -1,8 +1,8 @@
 # XBS 书源编辑器 · xiangseguige-source-editor
 
-> 香色闺阁（XBS / xiangseguige）书源的可视化编辑与 AI 生成工具，在浏览器本地运行，无需自建后端。
+> 香色闺阁（XBS / xiangseguige）书源的可视化编辑、管理和 Agent 自动生成工具。
 
-[![在线使用](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E4%BD%BF%E7%94%A8-GitHub%20Pages-blue)](https://urzeye.github.io/xiangseguige-source-editor)
+[![在线编辑](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E7%BC%96%E8%BE%91-%E4%B8%8D%E5%90%AB%20AI%20Agent-blue)](https://urzeye.github.io/xiangseguige-source-editor)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
@@ -11,134 +11,195 @@
 
 | 功能 | 说明 |
 |---|---|
-| **XBS ↔ JSON 转换** | 解密 `.xbs` 书源文件为可读 JSON，或将 JSON 重新加密为 `.xbs` |
-| **JSON 编辑器** | 带语法高亮的全功能 JSON 编辑，支持格式化 |
-| **书源管理** | 解析书源数组，逐条查看、启用/禁用、删除，按需导出 |
-| **AI 生成书源** | 输入小说网站 URL，AI 自动抓取并分析真实页面，生成完整 XBS 书源 JSON |
+| **XBS ↔ JSON 转换** | 解密 `.xbs` 为可读 JSON，或将 JSON 重新加密为 `.xbs` |
+| **JSON 编辑器** | CodeMirror 语法高亮、格式化和直接编辑 |
+| **书源管理** | 查看、启用、禁用、删除和导出多个书源 |
+| **AI 生成书源** | 左侧导航直接进入，无需先导入书源；按钮触发 Claude Agent SDK 和项目内 XBS skill |
+| **真实浏览器采集** | 按首页、搜索、详情、目录和正文建立可回溯证据链 |
+| **Cloudflare 处理** | 持久化浏览器配置、JS Challenge 等待、Turnstile 扩展补丁、CDP 点击和 clearance 复用 |
 
----
+## 运行方式
 
-## 快速开始（在线使用）
+| 运行方式 | XBS 编辑/转换/管理 | AI 生成书源 |
+|---|---:|---:|
+| GitHub Pages 静态页面 | 支持 | 不支持 |
+| Fork 后本地运行 | 支持 | 支持 |
 
-直接访问：**[https://urzeye.github.io/xiangseguige-source-editor](https://urzeye.github.io/xiangseguige-source-editor)**
+AI 生成依赖 Node.js Agent 服务、Chrome/Chromium、Claude Agent SDK 和本地持久化浏览器 profile，无法仅通过 GitHub Pages、Cloudflare Pages 等静态托管运行。推荐 Fork 本仓库后在本地运行完整项目。
 
-无需安装，浏览器即用。所有数据处理均在本地完成，不会上传到任何服务器。
+## Fork 后本地运行
 
----
+### 环境要求
 
-## 本地开发
+- Node.js 20+
+- pnpm
+- Google Chrome 或 Playwright 可用的 Chromium
+- Anthropic API Key，或兼容 Claude Agent SDK 的网关凭据（由页面用户填写）
+
+### 安装与启动
+
+1. 在 GitHub 页面右上角点击 **Fork**，将仓库 Fork 到自己的账号。
+2. 克隆自己的 Fork，并进入项目目录：
 
 ```bash
-# 安装依赖
-pnpm install
+git clone https://github.com/<your-github-name>/xiangseguige-source-editor.git
+cd xiangseguige-source-editor
+```
 
-# 启动开发服务器
+3. 安装依赖并启动开发环境：
+
+```bash
+pnpm install
+pnpm exec playwright install chromium
+cp .env.example .env
 pnpm dev
 ```
 
-开发服务器启动后访问 `http://localhost:5173`。
+默认服务：
 
----
+- Web UI：`http://localhost:5173`
+- Agent API：`http://localhost:3001`
+- 健康检查：`http://localhost:3001/api/agent/health`
+
+`.env` 示例：
+
+```dotenv
+AGENT_PORT=3001
+XBS_AGENT_HEADLESS=false
+XBS_AGENT_BROWSER_CHANNEL=
+```
+
+API Key、Base URL 和模型不通过项目文件或服务端环境变量配置，必须由页面用户填写。为便于重复使用，这三项和推理强度会保存在当前浏览器的 `localStorage`，不会写入仓库或服务端配置。
+
+后续同步上游更新时，可在自己的 Fork 中配置 upstream：
+
+```bash
+git remote add upstream https://github.com/urzeye/xiangseguige-source-editor.git
+git fetch upstream
+git merge upstream/main
+```
 
 ## 使用说明
 
-### 一、XBS 文件编辑
+### XBS 文件编辑
 
-1. 将 `.xbs` 文件拖拽到首页，或点击「导入 XBS」选择文件
-2. 工具自动解密并展示 JSON 内容，可直接编辑
-3. 编辑完成后点击「导出 XBS」重新加密下载，或「导出 JSON」保存明文
+1. 将 `.xbs` 文件拖到首页，或点击导入按钮。
+2. 工具自动解密并展示 JSON，可直接修改和格式化。
+3. 导出为 `.xbs` 或明文 `.json`。
 
-### 二、书源管理
+### 书源管理
 
-1. 导入包含多个书源的 `.xbs` 或 `.json` 文件后，切换到「书源管理」标签
-2. 可逐条查看书源详情、启用/禁用、删除
-3. 支持「仅导出启用的书源」，方便精简管理
+1. 导入包含多个书源的 `.xbs` 或 `.json`。
+2. 在「书源管理」中查看、启用、禁用或删除条目。
+3. 可仅导出启用的书源。
 
-### 三、AI 生成书源
+### Agent 生成书源
 
-AI 生成功能会真实抓取目标网站的多个页面（首页、搜索结果、书籍详情、章节列表、章节正文），再交给大模型分析生成完整的 XBS 书源规则。
+左侧导航直接点击「AI 生成书源」，无需预先导入任何文件。
 
-#### 配置步骤
+1. 配置 API Key、Base URL、模型和推理强度。
+2. 输入目标网站主页和测试书名。
+3. 点击「开始生成」。
+4. 查看 Agent 步骤、工具调用和采集日志。
+5. 完成后复制 JSON，或点击「添加到书源管理」。
 
-**1. 填写 AI 模型信息**
+生成流程不是单个提示词请求，而是由 Claude Agent SDK 驱动项目内 skill：
 
-| 字段 | 说明 |
-|---|---|
-| API Base URL | DeepSeek 接口地址，推荐 `https://api.deepseek.com` |
-| API Key | 你的 API Key，以 `sk-` 开头 |
-| 模型 | 推荐 `deepseek-v4-pro` |
-
-**2. 选择页面抓取代理**
-
-由于浏览器跨域限制，工具无法直接抓取目标网站，需要通过代理中转：
-
-- **本地开发**：选「本地开发（/api/fetch-page）」，Vite 内置代理自动处理
-- **作者提供的 CF Worker**：可直接使用，无需配置（不保证稳定性）
-- **自定义 Worker**：自行部署，稳定性最佳（推荐）
-
-#### 部署自己的 Cloudflare Worker（推荐）
-
-1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages
-2. 点击「创建 Worker」
-3. 将 [`public/cf-worker/fetch-proxy.js`](public/cf-worker/fetch-proxy.js) 的内容复制粘贴进编辑器
-4. 保存并部署，复制 Worker URL
-5. 在工具中选「自定义 Worker URL」，填入你的 Worker 地址
-
-**3. 输入目标站点和测试书名**
-
-| 字段 | 说明 | 示例 |
-|---|---|---|
-| 目标站点 | 小说网站主页 URL | `https://www.example.com` |
-| 测试书名 | 用于搜索和实测抓取，默认《斗罗大陆》 | `斗罗大陆` |
-
-**4. 点击「开始生成」**
-
-AI 会依次完成 7 个步骤：
-
-```
-1. 获取站点首页
-2. 搜索测试书名
-3. 获取书籍详情页
-4. 获取章节列表
-5. 读取第一章正文
-6. AI 分析生成书源 JSON
-7. 解析并验证结果
+```text
+.claude/skills/xbs-source-generator/
+├── SKILL.md
+├── references/
+│   ├── cloudflare.md
+│   ├── extraction.md
+│   └── xbs-rules.md
+├── scripts/
+│   ├── cloudflare-browser.mjs
+│   └── collect-site.mjs
+└── assets/cf-turnstile-patcher/
+    ├── manifest.json
+    └── script.js
 ```
 
-生成完成后，复制 JSON 手动导入到香色闺阁 App，或下载后在工具中加密为 `.xbs`。
+Agent 必须先运行受限采集器，再读取 evidence 和 HTML 快照，并用离线 `inspect` 命令逐项验证关键 XPath。服务端通过 `PreToolUse` hook 限制 Agent 只能读取当前 skill、当前任务证据，以及执行 skill 自带的 `collect`/`inspect` 命令。
 
-> ⚠️ 生成的书源规则基于 AI 对真实 HTML 的分析，准确率较高但不保证 100% 可用，建议在香色闺阁中测试验证后再使用。
->
-> AI 生成时，抓取到的页面 HTML 会发送到你填写的模型接口。工具不会根据 `baseUrl` 判断供应商；它只按接口返回的错误和参数兼容性自动降级，所以转发网关也能正常使用。若接口不支持 DeepSeek 的思考参数，工具会自动切到普通兼容请求。
->
-> 如需手动编写或调整规则，参阅 [香色闺阁书源规则.md](香色闺阁书源规则.md) 了解完整字段说明。
+## Cloudflare 处理
 
----
+Cloudflare 能力是项目自包含的可执行代码，不依赖其他仓库或本机绝对路径：
+
+- 每个 hostname 使用独立持久化浏览器 profile。
+- 自动识别中英文 JS Challenge 和 Managed Challenge。
+- 等待普通五秒盾自动完成。
+- Turnstile 出现时，优先使用 frame checkbox，失败后通过 CDP 穿透 iframe/Shadow DOM 获取位置并点击。
+- skill 内置 MV3 扩展和 init script，修复 challenge frame 的鼠标坐标与 Shadow DOM 可见性问题。
+- 获取 `cf_clearance` 后刷新并复用同一会话访问详情、目录和正文。
+- Cookie、Turnstile token 和浏览器指纹不会写入生成的 XBS JSON。
+
+Cloudflare 的风控结果仍取决于出口 IP、浏览器环境和站点策略。循环 Challenge、图片验证码或站点主动封禁可能无法自动完成；此时任务会保留截图外的 HTML、点击坐标、尝试方法和明确错误，不会将 Challenge 页面误当目标内容。
+
+## 搜索与证据策略
+
+采集器优先使用首页真实表单和常见站内搜索路由。只有站内搜索无法得到可访问的精确详情页时，才会使用 DuckDuckGo HTML 搜索做同源详情发现；只接受与目标站点同 origin 且符合书籍详情路径的 URL。第三方搜索结果不会直接成为书源规则。
+
+如需禁止该兜底：
+
+```dotenv
+XBS_AGENT_EXTERNAL_DISCOVERY=false
+```
+
+所有任务证据保存在 `.runtime/agent-tasks/`，该目录默认不提交 Git。
+
+## 验证与构建
+
+```bash
+# 校验 skill 文件、frontmatter、CF 资产和外部路径依赖
+pnpm skill:validate
+
+# 前端、Vite 和 Agent 服务 TypeScript 构建
+pnpm build
+
+# 在本地以生产模式同时启动 Web UI 与 Agent API
+pnpm start
+```
+
+生产模式访问 `http://127.0.0.1:3001/xiangseguige-source-editor/`。根路径会自动跳转到该地址。完整的 AI Agent 应通过该本地服务使用；单独上传 `dist/` 只能提供静态编辑功能。
+
+手动采集示例：
+
+```bash
+node .claude/skills/xbs-source-generator/scripts/collect-site.mjs collect \
+  --url 'https://www.69shuba.com/' \
+  --book '斗罗大陆' \
+  --output '.runtime/manual-69shuba/evidence.json'
+```
+
+采集器会输出 `home`、`search`、`detail`、`chapters`、`content` 页面链和对应快照。生成结果仍应在香色闺阁中实际导入验证。
+
+## 数据与密钥
+
+- API Key、Base URL 和模型保存在当前浏览器 `localStorage`，生成时随请求发送给 Agent 服务并注入本次 SDK 进程；服务端不持久化，日志输出会脱敏。请只在可信设备上使用。
+- 目标页面快照和测试书名会提供给配置的模型服务。
+- 启用外部详情发现时，目标 hostname 和测试书名会发送给 DuckDuckGo。
+- Cloudflare Cookie 和验证 token 只保存在本地 `.runtime` 浏览器 profile，不进入书源 JSON。
 
 ## 技术栈
 
-- [Vue 3](https://vuejs.org/) + [Vite](https://vitejs.dev/)
-- [CodeMirror 6](https://codemirror.net/) — JSON 编辑器
-- [Pinia](https://pinia.vuejs.org/) — 状态管理
-- XXTEA 算法 — `.xbs` 文件加解密
-
----
+- Vue 3、Vite、Pinia、CodeMirror 6
+- Express Agent API 和 Server-Sent Events
+- `@anthropic-ai/claude-agent-sdk`
+- Playwright、Chrome DevTools Protocol、MV3 扩展
+- XXTEA `.xbs` 加解密
 
 ## 关于香色闺阁 / XBS
 
-香色闺阁（xiangseguige）是一款主流小说 & 漫画阅读 App，使用自定义书源规则（`.xbs` 格式）聚合各小说网站内容。本工具用于辅助制作和管理这些书源规则。
+香色闺阁（xiangseguige）使用自定义书源规则聚合小说和漫画站点。本项目用于制作、验证和管理书源。
 
-**书源规则文档**：[香色闺阁书源规则.md](香色闺阁书源规则.md) — 基于真实 IPA 源码解析，涵盖所有字段定义、选择器语法、requestInfo/@js: 参数、分页、WebView 等完整规范
+书源字段和规则语法参阅 [香色闺阁书源规则.md](香色闺阁书源规则.md)。
 
 其他参考：[UFOAlastor/xiangseguige](https://github.com/UFOAlastor/xiangseguige)
-
----
 
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=urzeye/xiangseguige-source-editor&type=Date)](https://star-history.com/#urzeye/xiangseguige-source-editor&Date)
-
----
 
 ## License
 

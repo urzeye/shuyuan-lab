@@ -1,0 +1,20 @@
+{
+  "name": "CF Turnstile CDP Patcher",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "description": "修复 Chrome CDP Input.dispatchMouseEvent 导致 screenX/screenY 异常被 Cloudflare Turnstile 检测的问题",
+  "author": "urzeye",
+  "homepage_url": "https://github.com/urzeye/tampermonkey-scripts",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["script.js"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": true,
+      "match_about_blank": true
+    }
+  ],
+  "host_permissions": ["<all_urls>"],
+  "permissions": []
+}
