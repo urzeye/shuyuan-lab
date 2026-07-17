@@ -254,6 +254,8 @@ ${collectCommand}
     resultPath,
     JSON.stringify({
       taskId,
+      siteUrl: requestedUrl.href,
+      testBook: input.testBook.trim(),
       result: normalized,
       cost: finalMessage.total_cost_usd,
       duration: finalMessage.duration_ms,

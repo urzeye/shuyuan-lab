@@ -317,7 +317,11 @@ const isStaticHosting = computed(() => location.hostname.includes("github.io"));
 
 onMounted(async () => {
   if (!isStaticHosting.value) {
-    await generator.restoreTask();
+    const restored = await generator.restoreTask();
+    if (restored) {
+      siteUrl.value = restored.siteUrl;
+      testBook.value = restored.testBook;
+    }
   }
 });
 
@@ -327,7 +331,6 @@ async function startGenerate() {
   await generator.generate(
     siteUrl.value.trim(),
     testBook.value.trim() || "斗罗大陆",
-    activeTaskId.value || undefined,
   );
 }
 
