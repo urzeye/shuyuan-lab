@@ -151,11 +151,14 @@ export async function* runSourceAgent(
     return;
   }
 
-  // 已有完整证据链，跳过采集，直接用已有证据分析
+  // 已有完整证据链（pages 包含 search/detail/chapters/content），跳过采集
   let skipCollect = false;
   if (existsSync(evidencePath)) {
     const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-    if (evidence.chain?.content) {
+    const pageRoles = new Set(
+      (evidence.pages || []).map((p: { role: string }) => p.role),
+    );
+    if (["search", "detail", "chapters", "content"].every((role) => pageRoles.has(role))) {
       skipCollect = true;
     }
   }
