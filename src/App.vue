@@ -269,11 +269,7 @@
           v-show="store.activeTab === 'ai'"
           class="ai-view"
         >
-          <AiGeneratorPanel
-            :open="store.activeTab === 'ai'"
-            @close="store.activeTab = 'editor'"
-            @added="store.activeTab = 'sources'"
-          />
+          <AiGeneratorPanel @added="store.activeTab = 'sources'" />
         </div>
       </div>
     </div>
@@ -709,6 +705,17 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.ai-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
 
 .empty-sources {

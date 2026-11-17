@@ -2,6 +2,8 @@ import { ref, computed } from "vue";
 import type { BookSource } from "@/lib/types";
 
 export type CheckStatus = "pending" | "checking" | "ok" | "err" | "skip";
+// err 细分：network/timeout = 站点不可达（可禁用）；http = 服务器可达但搜索异常（如 404，可能只是规则问题）
+export type CheckErrKind = "network" | "timeout" | "http";
 
 export interface CheckResult {
   key: string;
@@ -10,6 +12,7 @@ export interface CheckResult {
   status: CheckStatus;
   detail: string;
   ms?: number;
+  errKind?: CheckErrKind;
 }
 
 // Parse @js: requestInfo and build search URL
@@ -80,13 +83,21 @@ async function checkOne(
     if (resp.type === "opaque" || resp.ok) {
       return { status: "ok", detail: "服务器可达", ms };
     }
-    return { status: "err", detail: `HTTP ${resp.status}`, ms };
+    return {
+      status: "err",
+      detail: `HTTP ${resp.status}`,
+      ms,
+      errKind: "http",
+    };
   } catch (e) {
     clearTimeout(timer);
     const ms = Date.now() - t0;
     const name = (e as Error).name;
-    if (name === "AbortError") return { status: "err", detail: "超时", ms };
-    return { status: "err", detail: "网络不可达", ms };
+    // 用户主动停止（外层 signal）不算不可达，与超时区分开
+    if (signal.aborted) return { status: "err", detail: "已中断", ms };
+    if (name === "AbortError")
+      return { status: "err", detail: "连接超时", ms, errKind: "timeout" };
+    return { status: "err", detail: "网络不可达", ms, errKind: "network" };
   }
 }
 
@@ -119,11 +130,37 @@ export function useSourceChecker() {
   const summary = computed(() => {
     const total = results.value.length;
     const ok = results.value.filter((r) => r.status === "ok").length;
-    const err = results.value.filter((r) => r.status === "err").length;
     const skip = results.value.filter((r) => r.status === "skip").length;
+    const err = results.value.filter((r) => r.status === "err").length;
+    const unreachable = results.value.filter(
+      (r) =>
+        r.status === "err" &&
+        (r.errKind === "network" || r.errKind === "timeout"),
+    ).length;
+    const httpErr = results.value.filter(
+      (r) => r.status === "err" && r.errKind === "http",
+    ).length;
+    const interrupted = results.value.filter(
+      (r) => r.status === "err" && !r.errKind,
+    ).length;
     const done = ok + err + skip;
-    return { total, ok, err, skip, done };
+    return { total, ok, err, unreachable, httpErr, interrupted, skip, done };
   });
+
+  // 站点级不可达（网络错误/超时）的 key 列表，用于「禁用不可达」
+  function unreachableKeys(): string[] {
+    return results.value
+      .filter(
+        (r) =>
+          r.status === "err" &&
+          (r.errKind === "network" || r.errKind === "timeout"),
+      )
+      .map((r) => r.key);
+  }
+
+  function clear() {
+    results.value = [];
+  }
 
   async function start(sources: BookSource[]) {
     if (!keyword.value.trim()) return;
@@ -142,6 +179,8 @@ export function useSourceChecker() {
     const signal = controller.signal;
 
     const tasks = sources.map((source, i) => async () => {
+      // 用户停止后不再领取新任务，保留 stop() 标记的「已中断」
+      if (signal.aborted) return;
       results.value[i] = {
         ...results.value[i],
         status: "checking",
@@ -176,5 +215,7 @@ export function useSourceChecker() {
     summary,
     start,
     stop,
+    unreachableKeys,
+    clear,
   };
 }

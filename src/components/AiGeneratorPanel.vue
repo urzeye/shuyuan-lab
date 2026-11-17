@@ -1,61 +1,5 @@
 <template>
-  <Teleport to="body">
-    <Transition name="ai-panel-slide">
-      <div
-        v-if="open"
-        class="ai-panel"
-      >
-        <!-- ── Header ── -->
-        <div class="ai-header">
-          <div class="ai-header-left">
-            <span class="ai-header-icon">
-              <Icon
-                name="sparkles"
-                :size="17"
-              />
-            </span>
-            <span class="ai-header-title">AI 生成书源</span>
-            <span
-              v-if="running"
-              class="status-badge running"
-            >
-              <span class="badge-dot"></span>生成中
-            </span>
-            <span
-              v-else-if="result"
-              class="status-badge done"
-              >✓ 已完成</span
-            >
-          </div>
-          <button
-            class="ai-close"
-            title="关闭"
-            @click="$emit('close')"
-          >
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            >
-              <line
-                x1="3"
-                y1="3"
-                x2="13"
-                y2="13"
-              />
-              <line
-                x1="13"
-                y1="3"
-                x2="3"
-                y2="13"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <div class="ai-body">
+  <div class="ai-body">
           <!-- ── Left Sidebar ── -->
           <aside class="ai-sidebar">
             <!-- Browser collector -->
@@ -365,10 +309,7 @@
               ></textarea>
             </div>
           </main>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -377,8 +318,7 @@ import { useEditorStore } from "@/stores/editor";
 import { useAiSourceGenerator } from "@/composables/useAiSourceGenerator";
 import Icon from "@/components/Icon.vue";
 
-const props = defineProps<{ open: boolean }>();
-const emit = defineEmits<{ (e: "close"): void; (e: "added"): void }>();
+const emit = defineEmits<{ (e: "added"): void }>();
 
 const editorStore = useEditorStore();
 const generator = useAiSourceGenerator();
@@ -447,109 +387,13 @@ async function copyJson() {
 </script>
 
 <style scoped>
-/* ── Panel Shell ── */
-.ai-panel {
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  z-index: 2000;
-}
-
-/* ── Header ── */
-.ai-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  height: 52px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.ai-header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.ai-header-icon {
-  display: inline-flex;
-}
-.ai-header-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: -0.01em;
-}
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 500;
-}
-.status-badge.running {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-}
-.status-badge.done {
-  background: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
-}
-.badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.3;
-  }
-}
-.ai-close {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  cursor: pointer;
-  border-radius: 8px;
-  color: var(--text2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
-  flex-shrink: 0;
-}
-.ai-close svg {
-  width: 14px;
-  height: 14px;
-  pointer-events: none;
-}
-.ai-close:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
-  color: #dc2626;
-}
-
 /* ── Body Layout ── */
 .ai-body {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
+  background: var(--bg);
 }
 
 /* ── Sidebar ── */
@@ -1075,18 +919,6 @@ select.ai-input {
   flex-shrink: 0;
 }
 
-/* Transition */
-.ai-panel-slide-enter-active,
-.ai-panel-slide-leave-active {
-  transition:
-    opacity 0.22s,
-    transform 0.22s;
-}
-.ai-panel-slide-enter-from,
-.ai-panel-slide-leave-to {
-  opacity: 0;
-  transform: translateY(12px);
-}
 </style>
 
 <style>

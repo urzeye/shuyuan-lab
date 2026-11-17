@@ -89,6 +89,7 @@
           <span class="s-sep"></span>
           <button
             class="btn btn-xs btn-muted"
+            :class="{ 'btn-active': checkerOpen }"
             @click="checkerOpen = !checkerOpen"
           >
             <Icon
@@ -108,6 +109,168 @@
             AI 生成书源
           </button>
         </template>
+      </div>
+    </div>
+
+    <!-- Checker bar (inline, above table) -->
+    <div
+      v-if="checkerOpen"
+      class="check-bar"
+    >
+      <div
+        v-if="httpWarning"
+        class="check-http-warn"
+      >
+        <Icon
+          name="alert-triangle"
+          :size="13"
+        />
+        当前页面为 HTTPS，HTTP 书源无法被浏览器检测，将自动跳过；本地运行可检测全部书源。
+      </div>
+      <div class="check-bar-row">
+        <template v-if="!checker.running.value && !checkDone">
+          <input
+            v-model="checker.keyword.value"
+            class="check-input"
+            placeholder="输入搜索关键词，如：斗破苍穹"
+            @keydown.enter="startCheck"
+          />
+          <label class="check-opt">
+            <span>并发</span>
+            <select v-model.number="checker.concurrency.value">
+              <option
+                v-for="n in [1, 3, 5, 10, 20]"
+                :key="n"
+                :value="n"
+              >
+                {{ n }}
+              </option>
+            </select>
+          </label>
+          <label class="check-opt">
+            <span>超时 (s)</span>
+            <select v-model.number="checker.timeout.value">
+              <option
+                v-for="n in [5, 8, 10, 15, 20]"
+                :key="n"
+                :value="n"
+              >
+                {{ n }}
+              </option>
+            </select>
+          </label>
+          <button
+            class="btn btn-xs btn-primary"
+            :disabled="!checker.keyword.value.trim()"
+            @click="startCheck"
+          >
+            <Icon
+              name="play"
+              :size="12"
+            />
+            开始检测
+          </button>
+        </template>
+
+        <template v-else>
+          <div class="check-progress">
+            <div
+              class="check-progress-fill"
+              :class="{ done: checkDone }"
+              :style="{ width: checkProgress + '%' }"
+            />
+          </div>
+          <div class="check-summary">
+            <span class="cs-ok">
+              <Icon
+                name="check-circle"
+                :size="12"
+              />
+              {{ checker.summary.value.ok }} 可达
+            </span>
+            <span
+              v-if="checker.summary.value.unreachable > 0"
+              class="cs-err"
+            >
+              <Icon
+                name="x-circle"
+                :size="12"
+              />
+              {{ checker.summary.value.unreachable }} 不可达
+            </span>
+            <span
+              v-if="checker.summary.value.httpErr > 0"
+              class="cs-http"
+              title="服务器可达但搜索请求返回错误状态，可能是搜索规则问题，不代表书源失效"
+            >
+              <Icon
+                name="alert-triangle"
+                :size="12"
+              />
+              {{ checker.summary.value.httpErr }} 搜索异常
+            </span>
+            <span
+              v-if="checker.summary.value.skip > 0"
+              class="cs-skip"
+            >
+              {{ checker.summary.value.skip }} 跳过
+            </span>
+            <span
+              v-if="checker.summary.value.interrupted > 0"
+              class="cs-skip"
+            >
+              {{ checker.summary.value.interrupted }} 已中断
+            </span>
+            <span class="cs-total">/ {{ checker.summary.value.total }}</span>
+          </div>
+          <button
+            v-if="checker.running.value"
+            class="btn btn-xs btn-danger"
+            @click="checker.stop"
+          >
+            停止
+          </button>
+          <template v-else>
+            <button
+              v-if="checker.summary.value.unreachable > 0"
+              class="btn btn-xs btn-danger"
+              @click="askDisableUnreachable"
+            >
+              <Icon
+                name="ban"
+                :size="12"
+              />
+              禁用不可达 ({{ checker.summary.value.unreachable }})
+            </button>
+            <button
+              class="btn btn-xs btn-muted"
+              @click="rerunCheck"
+            >
+              <Icon
+                name="refresh-cw"
+                :size="12"
+              />
+              重新检测
+            </button>
+            <button
+              class="btn btn-xs btn-muted"
+              @click="clearCheck"
+            >
+              清除结果
+            </button>
+          </template>
+        </template>
+
+        <button
+          class="check-bar-close"
+          title="收起"
+          @click="checkerOpen = false"
+        >
+          <Icon
+            name="x"
+            :size="13"
+          />
+        </button>
       </div>
     </div>
 
@@ -142,6 +305,12 @@
               :class="sortClass('enable')"
             >
               状态
+            </th>
+            <th
+              v-if="hasCheckResults"
+              class="th-check-result"
+            >
+              检测
             </th>
             <th
               @click="setSort('weight')"
@@ -198,6 +367,69 @@
                 {{ row.enable ? "启用" : "禁用" }}
               </span>
             </td>
+            <td
+              v-if="hasCheckResults"
+              class="td-check-result"
+            >
+              <template v-if="checkMap.get(row._key)">
+                <span
+                  v-if="checkMap.get(row._key)!.status === 'checking'"
+                  class="cr cr-checking"
+                >
+                  <span class="cr-spinner"></span>检测中
+                </span>
+                <span
+                  v-else-if="checkMap.get(row._key)!.status === 'pending'"
+                  class="cr cr-pending"
+                  >等待中</span
+                >
+                <span
+                  v-else-if="checkMap.get(row._key)!.status === 'ok'"
+                  class="cr cr-ok"
+                >
+                  <Icon
+                    name="check-circle"
+                    :size="12"
+                  />{{ checkMap.get(row._key)!.ms }}ms
+                </span>
+                <span
+                  v-else-if="checkMap.get(row._key)!.status === 'skip'"
+                  class="cr cr-skip"
+                  :title="checkMap.get(row._key)!.detail"
+                  >跳过</span
+                >
+                <span
+                  v-else-if="checkMap.get(row._key)!.errKind === 'http'"
+                  class="cr cr-http"
+                  :title="'搜索请求返回 ' + checkMap.get(row._key)!.detail + '，站点本身可能正常，可能只是搜索规则问题'"
+                >
+                  <Icon
+                    name="alert-triangle"
+                    :size="12"
+                  />{{ checkMap.get(row._key)!.detail }}
+                </span>
+                <span
+                  v-else-if="!checkMap.get(row._key)!.errKind"
+                  class="cr cr-skip"
+                  >已中断</span
+                >
+                <span
+                  v-else
+                  class="cr cr-err"
+                  :title="checkMap.get(row._key)!.detail"
+                >
+                  <Icon
+                    name="x-circle"
+                    :size="12"
+                  />{{ checkMap.get(row._key)!.detail }}
+                </span>
+              </template>
+              <span
+                v-else
+                class="cr cr-skip"
+                >—</span
+              >
+            </td>
             <td>{{ row.weight }}</td>
             <td class="td-date">{{ formatDate(row.lastModifyTime) }}</td>
             <td class="td-ops">
@@ -225,7 +457,7 @@
           </tr>
           <tr v-if="filteredRows.length === 0">
             <td
-              colspan="7"
+              :colspan="hasCheckResults ? 8 : 7"
               class="empty"
             >
               未找到匹配书源
@@ -268,13 +500,6 @@
       <span class="page-size-label">条</span>
     </div>
   </div>
-
-  <!-- Checker Panel -->
-  <CheckerPanel
-    :open="checkerOpen"
-    :sources="store.sources"
-    @close="checkerOpen = false"
-  />
 
   <!-- Detail Drawer: edit single source JSON -->
   <SourceDrawer
@@ -350,13 +575,19 @@
           placeholder="0"
         />
       </label>
-      <label class="form-row form-row-check">
-        <input
-          type="checkbox"
-          v-model="addForm.enable"
-        />
+      <div class="form-row form-row-switch">
         <span>启用</span>
-      </label>
+        <button
+          type="button"
+          class="switch"
+          :class="{ on: addForm.enable }"
+          role="switch"
+          :aria-checked="addForm.enable"
+          @click="addForm.enable = !addForm.enable"
+        >
+          <span class="switch-thumb"></span>
+        </button>
+      </div>
       <div class="form-hint">
         其余字段可在保存后点击书源名称，在 JSON 编辑器中完善
       </div>
@@ -384,6 +615,7 @@
     :open="deleteConfirm.open"
     :title="deleteConfirm.title"
     :message="deleteConfirm.message"
+    :confirm-text="deleteConfirm.confirmText"
     @confirm="runDelete"
     @cancel="deleteConfirm.open = false"
   />
@@ -392,8 +624,8 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useEditorStore } from "@/stores/editor";
+import { useSourceChecker } from "@/composables/useSourceChecker";
 import SourceDrawer from "@/components/SourceDrawer.vue";
-import CheckerPanel from "@/components/CheckerPanel.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
 import JsonEditor from "@/components/JsonEditor.vue";
 import Icon from "@/components/Icon.vue";
@@ -401,6 +633,56 @@ import type { BookSource } from "@/lib/types";
 
 const store = useEditorStore();
 const checkerOpen = ref(false);
+const checker = useSourceChecker();
+
+const hasCheckResults = computed(() => checker.results.value.length > 0);
+const checkMap = computed(
+  () => new Map(checker.results.value.map((r) => [r.key, r])),
+);
+const checkDone = computed(
+  () =>
+    hasCheckResults.value &&
+    !checker.running.value &&
+    checker.summary.value.done >= checker.summary.value.total,
+);
+const checkProgress = computed(() => {
+  const { done, total } = checker.summary.value;
+  return total > 0 ? Math.round((done / total) * 100) : 0;
+});
+const httpWarning = computed(
+  () =>
+    location.protocol === "https:" &&
+    store.sources.some((s) => s.sourceUrl.startsWith("http:")),
+);
+
+function startCheck() {
+  if (!checker.keyword.value.trim() || checker.running.value) return;
+  checker.start(store.sources);
+}
+
+function rerunCheck() {
+  checkerOpen.value = true;
+  checker.clear();
+}
+
+function clearCheck() {
+  checker.clear();
+  checkerOpen.value = false;
+}
+
+function askDisableUnreachable() {
+  const keys = checker.unreachableKeys();
+  if (keys.length === 0) return;
+  askDelete(
+    "禁用不可达书源",
+    `将禁用 ${keys.length} 条不可达书源（网络错误/超时）。搜索异常（如 HTTP 404）的书源不受影响，可随时重新启用。`,
+    () => {
+      keys.forEach((k) => store.setSourceEnabled(k, false));
+      store.toast(`已禁用 ${keys.length} 条不可达书源`, "ok");
+    },
+    "确认禁用",
+  );
+}
 
 const search = ref("");
 const sortKey = ref<keyof BookSource>("sourceName");
@@ -495,11 +777,17 @@ const deleteConfirm = ref({
   open: false,
   title: "",
   message: "",
+  confirmText: "确认删除",
   action: null as null | (() => void),
 });
 
-function askDelete(title: string, message: string, action: () => void) {
-  deleteConfirm.value = { open: true, title, message, action };
+function askDelete(
+  title: string,
+  message: string,
+  action: () => void,
+  confirmText = "确认删除",
+) {
+  deleteConfirm.value = { open: true, title, message, confirmText, action };
 }
 function runDelete() {
   deleteConfirm.value.action?.();
@@ -678,6 +966,174 @@ function saveAdd() {
   height: 16px;
   background: var(--border);
   margin: 0 2px;
+}
+.btn-active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* ── Inline checker bar ── */
+.check-bar {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  flex-shrink: 0;
+}
+.check-http-warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-bottom: 1px solid var(--amber-border);
+}
+.check-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  flex-wrap: wrap;
+}
+.check-input {
+  flex: 1;
+  min-width: 180px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+.check-input:focus {
+  border-color: var(--accent);
+}
+.check-opt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+.check-opt select {
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  outline: none;
+}
+.check-progress {
+  flex: 1;
+  min-width: 120px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.check-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.check-progress-fill.done {
+  background: var(--green);
+}
+.check-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.check-summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.cs-ok {
+  color: var(--green);
+}
+.cs-err {
+  color: var(--red);
+}
+.cs-http {
+  color: var(--amber);
+  cursor: help;
+}
+.cs-skip {
+  color: var(--text3);
+}
+.cs-total {
+  color: var(--text2);
+  font-weight: 400;
+}
+.check-bar-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text3);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.check-bar-close:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ── Per-row check result cell ── */
+.td-check-result {
+  white-space: nowrap;
+}
+.cr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.cr-ok {
+  color: var(--green);
+}
+.cr-err {
+  color: var(--red);
+}
+.cr-http {
+  color: var(--amber);
+  cursor: help;
+}
+.cr-skip,
+.cr-pending {
+  color: var(--text3);
+}
+.cr-checking {
+  color: var(--blue);
+}
+.cr-spinner {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: cr-spin 0.7s linear infinite;
+}
+@keyframes cr-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .table-scroll {
@@ -944,10 +1400,10 @@ tr:hover td {
 .form-row input:focus {
   border-color: var(--accent);
 }
-.form-row-check {
+.form-row-switch {
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
 }
 .form-hint {
   font-size: 12px;
