@@ -10,8 +10,8 @@
           />
         </span>
         <div class="logo-text">
-          <div class="logo-main">XBS 书源编辑器</div>
-          <div class="logo-sub">书源工坊 shuyuan-lab</div>
+          <div class="logo-main">书源工坊</div>
+          <div class="logo-sub">XBS 书源编辑器</div>
         </div>
       </div>
 
