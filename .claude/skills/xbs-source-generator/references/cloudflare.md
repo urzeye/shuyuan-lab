@@ -14,7 +14,15 @@ The deployment only needs this skill directory, project dependencies, and a loca
 
 The evidence records challenge detection, attempts, click coordinates, methods, clearance reloads, final title, and final URL. A challenge is cleared only when the page is no longer a Cloudflare interstitial and meaningful target HTML is available. Some sites keep the initial HTTP 403 status even after returning the real document; these are marked `recovered_challenge_response=true` only when the challenge cleared and substantial target HTML was captured.
 
-Set `XBS_AGENT_BROWSER_CHANNEL=chromium` to force Playwright Chromium. Leave it empty to try Chrome first and Chromium second.
+## Environment variables
+
+| Variable | Effect |
+|----------|--------|
+| `XBS_AGENT_BROWSER_CHANNEL` | `chromium` forces Playwright Chromium. Empty tries local Chrome first, Chromium second. |
+| `XBS_AGENT_HEADLESS` | `true` runs headless as a diagnostic fallback; may reduce challenge pass rate. |
+| `XBS_AGENT_EXTERNAL_DISCOVERY` | `false` disables the external search-engine discovery fallback. |
+
+Browser profiles persist per hostname under `.runtime/browser-profiles/` so a solved clearance survives across runs. They are safe to delete (the next run just re-solves the challenge) and can grow large over time; prune stale hostnames when disk matters.
 
 ## Important boundaries
 

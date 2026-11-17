@@ -35,9 +35,30 @@ export interface AgentEvent {
 const projectRoot = path.resolve(process.cwd());
 const collectorRelative =
   ".claude/skills/xbs-source-generator/scripts/collect-site.mjs";
+const encoderRelative =
+  ".claude/skills/xbs-source-generator/scripts/xbs-encode.mjs";
 
 function shellQuote(value: string): string {
   return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
+// 只在引号外检测 shell 元字符：XPath 表达式里合法出现 | < > 等字符，
+// 整条命令扫描会把合法的 inspect 命令误判为注入。
+function stripQuotedSegments(command: string): string {
+  let result = "";
+  let quote: string | null = null;
+  for (const char of command) {
+    if (quote) {
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      continue;
+    }
+    result += char;
+  }
+  return result;
 }
 
 function assertGenerateInput(input: GenerateRequest): URL {
@@ -80,10 +101,14 @@ function createToolGuard(evidencePath: string): HookCallback {
       );
       const normalized = command.replace(/\s+/g, " ").trim();
       const collectorPrefix = `node ${collectorRelative}`;
+      const encoderPrefix = `node ${encoderRelative}`;
       const safe =
         normalized.startsWith(`${collectorPrefix} collect `) ||
-        normalized.startsWith(`${collectorPrefix} inspect `);
-      const forbidden = /[;&|`$<>\n\r]|\.\.\//.test(command);
+        normalized.startsWith(`${collectorPrefix} inspect `) ||
+        normalized.startsWith(`${encoderPrefix} `);
+      const forbidden = /[;&|`$<>\n\r]|\.\.\//.test(
+        stripQuotedSegments(command),
+      );
       return {
         hookSpecificOutput: {
           hookEventName: "PreToolUse",

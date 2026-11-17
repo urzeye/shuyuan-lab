@@ -45,7 +45,8 @@ Do not add `validConfig`, `httpHeaders`, `requestInfo`, or any other field unles
 - `searchBook`: `requestInfo`, `list`, `bookName`, `detailUrl`; add author, cover, desc, cat, status, wordCount, lastChapterTitle only when verified.
 - `bookDetail`: verified bookName/author/cover/desc/cat/status/wordCount/lastChapterTitle fields. It may be sparse.
 - `chapterList`: `list`, `title`, `url` and a real `requestInfo` only if the directory is a separate URL.
-- `chapterContent`: `content`; add `nextPage` only after pagination is observed.
+- `chapterContent`: `content`; add `nextPageUrl` only after pagination is observed. `nextPageUrl` pairs with `moreKeys.maxPage`; without a captured max page, omit `moreKeys`.
+- `chapterList.nextPageUrl` follows the same rule when the directory itself paginates (see `paginated_hint` in evidence).
 
 ## Request syntax
 
@@ -62,6 +63,28 @@ Only emit an `@js:` POST request when the browser evidence records the form meth
 let url = config.host + '/search';
 return {url, POST: true, httpParams: {searchkey: params.keyWord}, httpHeaders: config.httpHeaders};
 ```
+
+### requestInfo placeholders
+
+| Placeholder | Meaning |
+|-------------|---------|
+| `%@keyWord` | search keyword |
+| `%@pageIndex` | page number (1-based) |
+| `%@filter` | single filter value |
+| `%@result` | previous step result |
+
+### Variables available inside `@js:`
+
+| Variable | Meaning |
+|----------|---------|
+| `config.host` | site host |
+| `config.httpHeaders` | global request headers |
+| `params.keyWord` | search keyword |
+| `params.pageIndex` | current page number |
+| `params.filters` | multi-key filter object |
+| `params.responseUrl` | actual response URL |
+| `params.nativeTool` | native helper (XPath evaluation, logging) |
+| `result` | previous step result |
 
 ## XPath syntax
 
@@ -94,7 +117,22 @@ return result
   .replace(/请记住本站域名[^<]*/g, '');
 ```
 
+Strip a fixed prefix with `|@replace:` (simpler than `|@js:` when no pattern logic is needed):
+
+```text
+//div[@id='info']/p[3]|@replace:最后更新：
+```
+
 Do not add unobserved ad phrases. Do not use a `filter` property.
+
+`||`, `||@js:`, `|@js:`, and `|@replace:` are XBS rule syntax, not XPath. The offline inspector accepts plain XPath only; inspect each `||` branch separately.
+
+## Advanced parsers (use sparingly)
+
+- `parserID: "JSParser"` replaces the whole rule's parsing with a JavaScript function. Only reach for it when DOM XPath cannot express the extraction at all.
+- `bookWorld` supports `requestFilters` for category/ discovery filtering. Emit only when the captured evidence proves the filter structure.
+
+See [example-source.json](example-source.json) for one complete verified source.
 
 ## Output invariants
 
@@ -102,7 +140,7 @@ Do not add unobserved ad phrases. Do not use a `filter` property.
 - `actionID` equals its containing rule key.
 - `status`, not `state`.
 - `lastChapterTitle`, not `lastChapter`.
-- `weight` and `lastModifyTime` are strings for broad compatibility. `lastModifyTime` must be a current Unix timestamp with microsecond precision (e.g. `"1700000000.000000"`), never `"0"`.
+- `weight` and `lastModifyTime` are strings for broad compatibility. Set `lastModifyTime` to `"0"`; the server replaces it with the current timestamp during validation. Never invent a timestamp.
 - `sourceUrl` must not have a trailing slash.
 - `desc` is only emitted when the source has a real human-written description. Omit or use `""` otherwise — never inject auto-generated filler text.
 - `password` is only emitted when a source actually needs one. Omit otherwise.

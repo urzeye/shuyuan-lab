@@ -69,9 +69,11 @@ function cleanSnapshot(html, maxLength = 350_000) {
     .replace(/<!--([\s\S]*?)-->/g, "")
     .replace(/>\s*</g, ">\n<")
     .replace(/[ \t]{2,}/g, " ");
-  return cleaned.length > maxLength
-    ? `${cleaned.slice(0, maxLength)}\n<!-- snapshot truncated -->`
-    : cleaned;
+  const truncated = cleaned.length > maxLength;
+  return {
+    html: truncated ? `${cleaned.slice(0, maxLength)}\n<!-- snapshot truncated -->` : cleaned,
+    truncated,
+  };
 }
 
 async function pageInventory(page, origin) {
@@ -116,7 +118,8 @@ async function capture(page, role, outputDir, origin, response = null) {
   const cloudflare = await clearCloudflare(page);
   const html = await page.content().catch(() => "");
   const snapshotPath = path.join(outputDir, `${role}.html`);
-  await writeFile(snapshotPath, cleanSnapshot(html), "utf8");
+  const snapshot = cleanSnapshot(html);
+  await writeFile(snapshotPath, snapshot.html, "utf8");
   const inventory = await pageInventory(page, origin).catch(() => ({
     forms: [],
     links: [],
@@ -142,6 +145,7 @@ async function capture(page, role, outputDir, origin, response = null) {
       recoveredChallengeResponse,
     recovered_challenge_response: recoveredChallengeResponse,
     snapshot_path: snapshotPath,
+    snapshot_truncated: snapshot.truncated,
     html_length: html.length,
     ...inventory,
     cloudflare,
@@ -211,7 +215,10 @@ function searchForms(homePage, siteUrl, book) {
     ["/search", "keyword"],
     ["/search", "searchkey"],
     ["/search.html", "searchkey"],
+    ["/search.htm", "keyword"],
     ["/search.php", "keyword"],
+    ["/search.php", "searchkey"],
+    ["/s.php", "q"],
     ["/modules/article/search.php", "searchkey"],
     ["/", "s"],
   ];
@@ -256,8 +263,11 @@ async function attemptSearch(context, candidate, siteUrl, book, origin, homePage
     if (candidate.kind === "form" && candidate.method === "post") {
       await page.goto(siteUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
       await clearCloudflare(page);
-      const form = page.locator(`form[action="${candidate.action}"]`).first();
-      const scoped = (await form.count()) ? form : page.locator("form").filter({ has: page.locator(`[name="${candidate.input}"]`) }).first();
+      // HTML 里的 action 通常是相对路径，绝对 URL 匹配几乎必落空；
+      // 按待填 input 的 name 定位表单更本质。
+      const byInput = page.locator("form").filter({ has: page.locator(`[name="${candidate.input}"]`) }).first();
+      const byAction = page.locator(`form[action="${candidate.action}"]`).first();
+      const scoped = (await byInput.count()) ? byInput : byAction;
       if (!(await scoped.count())) throw new Error("search form was not found after navigation");
       await scoped.evaluate((element, hidden) => {
         for (const [name, value] of Object.entries(hidden)) {
@@ -293,8 +303,9 @@ async function attemptSearch(context, candidate, siteUrl, book, origin, homePage
     const titleHit = normalizeBookText(inventory.textSample).includes(normalizeBookText(book));
     const finalUrl = page.url();
     const sameAsHomeUrl = canonicalPageUrl(finalUrl) === canonicalPageUrl(homePage.url);
+    const linkSet = (links) => JSON.stringify(links.map((link) => `${link.text}|${link.href}`).sort());
     const sameAsHomeContent =
-      inventory.textSample.length > 0 && inventory.textSample === homePage.textSample;
+      inventory.links.length > 0 && linkSet(inventory.links) === linkSet(homePage.links);
     const homeLike = sameAsHomeContent || (sameAsHomeUrl && exactBookLinks.length === 0);
     const emptyResult = exactBookLinks.length === 0;
     const blocked = !cf.cleared || ([403, 429].includes(response?.status?.() ?? 200) && !titleHit);
@@ -311,6 +322,7 @@ async function attemptSearch(context, candidate, siteUrl, book, origin, homePage
       homeLike,
       blocked,
       finalUrl,
+      textSample: inventory.textSample,
       candidate,
     };
   } catch (error) {
@@ -319,7 +331,35 @@ async function attemptSearch(context, candidate, siteUrl, book, origin, homePage
   }
 }
 
-function scoreBookLink(link, book) {
+function detailPathPrefixOf(pathname) {
+  const match = pathname.match(/^(.+\/)?\d{2,}(?:\.html?|\/?)$/);
+  return match ? match[1] || "/" : null;
+}
+
+// 从站内链接统计详情页路径前缀（如 /book/、/bookinfo/），
+// 取代硬编码的 /book/ 约定。计数过低的视为噪声。
+function inferDetailPathPrefix(...pageInfos) {
+  const counts = new Map();
+  for (const pageInfo of pageInfos) {
+    for (const link of pageInfo?.links || []) {
+      let pathname;
+      try {
+        pathname = new URL(link.href).pathname;
+      } catch {
+        continue;
+      }
+      const prefix = detailPathPrefixOf(pathname);
+      if (!prefix || prefix === "/") continue;
+      counts.set(prefix, (counts.get(prefix) || 0) + 1);
+    }
+  }
+  const ranked = [...counts.entries()]
+    .filter(([, count]) => count >= 3)
+    .sort((a, b) => b[1] - a[1]);
+  return ranked[0]?.[0] || null;
+}
+
+function scoreBookLink(link, book, pathPrefix = "/book/") {
   let score = 0;
   const normalizedText = normalizeBookText(link.text);
   const normalizedBook = normalizeBookText(book);
@@ -332,7 +372,11 @@ function scoreBookLink(link, book) {
   if (looksLikeExactResult) score += 140;
   else if (normalizedText.startsWith(normalizedBook)) score += 60;
   else if (normalizedText.includes(normalizedBook)) score += 40;
-  if (/\/book\/\d+\.html?$/i.test(link.href)) score += 20;
+  try {
+    if (pathPrefix && detailPathPrefixOf(new URL(link.href).pathname) === pathPrefix) score += 20;
+  } catch {
+    // 非法 URL 不加结构分
+  }
   if (/book|novel|article|txt|read|info|\d{3,}/i.test(link.href)) score += 10;
   if (/search|login|register|author|tag|category/i.test(link.href)) score -= 30;
   return score;
@@ -350,12 +394,12 @@ function unwrapDuckDuckGoUrl(value) {
   }
 }
 
-async function discoverDetailLinks(context, origin, hostname, book) {
+async function discoverDetailLinks(context, origin, hostname, book, pathPrefix = "/book/") {
   if (process.env.XBS_AGENT_EXTERNAL_DISCOVERY === "false") {
     return { engine: "duckduckgo-html", disabled: true, candidates: [] };
   }
   const page = await context.newPage();
-  const query = `site:${hostname}/book/ "${book}"`;
+  const query = `site:${hostname}${pathPrefix} "${book}"`;
   const url = new URL("https://html.duckduckgo.com/html/");
   url.searchParams.set("q", query);
   try {
@@ -380,7 +424,7 @@ async function discoverDetailLinks(context, origin, hostname, book) {
       .filter(
         (item) =>
           sameSite(item.href, origin) &&
-          /\/book\/\d+(?:\.html?|\/?)$/i.test(new URL(item.href).pathname) &&
+          detailPathPrefixOf(new URL(item.href).pathname) === pathPrefix &&
           normalizeBookText(`${item.text} ${item.snippet}`).includes(normalizeBookText(book)),
       );
     return {
@@ -530,9 +574,41 @@ async function collect(args) {
       evidence.search.successful = {
         ...searchResult.candidate,
         final_url: searchCapture.url,
+        // 表单提交由浏览器按页面编码处理；URL 模板固定 UTF-8 百分编码，
+        // 老站（GBK）只能用表单路径时，requestInfo 需要 @js: POST 而非 URL 模板。
+        encoding: searchResult.candidate.kind === "form" ? "form-native" : "utf-8-url",
       };
+
+      // 控制词探针：用不可能存在的书名复搜同一接口。结果页仍含测试书
+      // 或与书搜索结果完全相同，说明该接口返回静态内容，是伪搜索。
+      const controlTerm = `源检测${Math.random().toString(36).slice(2, 8)}`;
+      const probe = await attemptSearch(
+        context,
+        searchResult.candidate,
+        homeCapture.url,
+        controlTerm,
+        effectiveOrigin,
+        homeCapture,
+      );
+      evidence.search.control_probe = {
+        term: controlTerm,
+        final_url: probe.finalUrl ?? null,
+        contains_test_book: Boolean(
+          probe.textSample &&
+            normalizeBookText(probe.textSample).includes(normalizeBookText(args.book)),
+        ),
+        same_text_as_book_search: Boolean(
+          probe.textSample && probe.textSample === searchResult.textSample,
+        ),
+        error: probe.error,
+      };
+      if (probe.page) await probe.page.close();
+
+      const detailPathPrefix =
+        inferDetailPathPrefix(homeCapture, searchCapture) || "/book/";
+      evidence.search.detail_path_prefix = detailPathPrefix;
       const nativeDetailCandidates = searchCapture.links
-        .map((link) => ({ ...link, score: scoreBookLink(link, args.book) }))
+        .map((link) => ({ ...link, score: scoreBookLink(link, args.book, detailPathPrefix) }))
         .sort((a, b) => b.score - a.score)
         .filter((link) => link.score > 20);
       const discovery = await discoverDetailLinks(
@@ -540,10 +616,11 @@ async function collect(args) {
         effectiveOrigin,
         site.hostname,
         args.book,
+        detailPathPrefix,
       );
       evidence.search.external_discovery = discovery;
       const detailCandidates = [...nativeDetailCandidates, ...discovery.candidates]
-        .map((link) => ({ ...link, score: scoreBookLink(link, args.book) }))
+        .map((link) => ({ ...link, score: scoreBookLink(link, args.book, detailPathPrefix) }))
         .sort((a, b) => b.score - a.score)
         .filter(
           (link, index, links) =>
@@ -588,6 +665,7 @@ async function collect(args) {
 
         const directoryLink = findDirectoryLink(detailCapture);
         let chapterCapture = detailCapture;
+        let chapterRecord;
         if (
           directoryLink &&
           directoryLink.href !== detailCapture.url &&
@@ -601,10 +679,16 @@ async function collect(args) {
           chapterCapture = await capture(chapters, "chapters", outputDir, effectiveOrigin, chaptersResponse);
           recordPage(evidence, chapterCapture);
           requireAccessible(chapterCapture);
+          chapterRecord = chapterCapture;
         } else {
-          evidence.pages.push({ ...detailCapture, role: "chapters", snapshot_path: detailCapture.snapshot_path });
+          chapterRecord = { ...detailCapture, role: "chapters", snapshot_path: detailCapture.snapshot_path };
+          evidence.pages.push(chapterRecord);
         }
         evidence.chain.chapters = chapterCapture.url;
+        // 目录分页提示：存在"下一页"类链接时，chapterList 规则可能只覆盖第一页。
+        chapterRecord.paginated_hint = chapterRecord.links.some(
+          (link) => /^(下一页|下页|next)$/i.test(link.text.trim()),
+        );
 
         const firstChapter = chapterCapture.links
           .map((link) => ({ ...link, score: scoreChapterLink(link) }))
@@ -637,18 +721,53 @@ async function collect(args) {
 }
 
 async function inspect(args) {
-  if (!args.evidence || !args.role || !args.xpath) {
-    throw new Error("inspect requires --evidence, --role, and --xpath");
+  if (!args.evidence || (!args["checks-json"] && (!args.role || !args.xpath))) {
+    throw new Error("inspect requires --evidence plus --checks-json, or --role and --xpath");
   }
   const evidencePath = path.resolve(args.evidence);
   const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-  const pageInfo = evidence.pages.find((item) => item.role === args.role);
-  if (!pageInfo) throw new Error(`role not captured: ${args.role}`);
-  const snapshotPath = path.resolve(pageInfo.snapshot_path);
-  if (!snapshotPath.startsWith(`${path.dirname(evidencePath)}${path.sep}`)) {
-    throw new Error("snapshot is outside the evidence directory");
+  let checks;
+  if (args["checks-json"]) {
+    try {
+      checks = JSON.parse(args["checks-json"]);
+    } catch {
+      throw new Error("--checks-json is not valid JSON");
+    }
+    if (!Array.isArray(checks) || checks.length === 0) {
+      throw new Error("--checks-json must be a non-empty array");
+    }
+    for (const check of checks) {
+      if (!check.role || !check.xpath) throw new Error("each check needs role and xpath");
+    }
+  } else {
+    checks = [
+      {
+        rule: args.rule || `${args.role} ${args.xpath}`,
+        role: args.role,
+        xpath: args.xpath,
+        contextXpath: args["context-xpath"],
+      },
+    ];
   }
-  const html = await readFile(snapshotPath, "utf8");
+
+  const snapshotDir = `${path.dirname(evidencePath)}${path.sep}`;
+  const htmlByRole = new Map();
+  const snapshotError = new Map();
+  for (const check of checks) {
+    if (htmlByRole.has(check.role) || snapshotError.has(check.role)) continue;
+    const pageInfo = evidence.pages.find((item) => item.role === check.role);
+    if (!pageInfo) {
+      snapshotError.set(check.role, `role not captured: ${check.role}`);
+      continue;
+    }
+    const snapshotPath = path.resolve(pageInfo.snapshot_path);
+    if (!snapshotPath.startsWith(snapshotDir)) {
+      snapshotError.set(check.role, "snapshot is outside the evidence directory");
+      continue;
+    }
+    htmlByRole.set(check.role, await readFile(snapshotPath, "utf8"));
+  }
+
   let browser;
   try {
     browser = await chromium.launch({ channel: "chrome", headless: true });
@@ -656,37 +775,75 @@ async function inspect(args) {
     browser = await chromium.launch({ headless: true });
   }
   try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "domcontentloaded" });
-    const result = await page.evaluate(
-      ({ xpath, contextXpath }) => {
-        const evaluate = (expression, root) => {
-          const result = document.evaluate(
-            expression,
-            root,
-            null,
-            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-            null,
-          );
-          return Array.from({ length: result.snapshotLength }, (_, index) => result.snapshotItem(index));
-        };
-        const roots = contextXpath ? evaluate(contextXpath, document) : [document];
-        const matches = roots.flatMap((root) => evaluate(xpath, root));
-        const samples = matches.slice(0, 8).map((node) => ({
-          node: node.nodeName,
-          value:
-            node.nodeType === Node.ATTRIBUTE_NODE || node.nodeType === Node.TEXT_NODE
-              ? node.nodeValue?.trim().slice(0, 500)
-              : node.textContent?.replace(/\s+/g, " ").trim().slice(0, 500),
-          href: node instanceof Element ? node.getAttribute("href") : null,
-          class: node instanceof Element ? node.getAttribute("class") : null,
-          id: node instanceof Element ? node.id || null : null,
-        }));
-        return { root_count: roots.length, count: matches.length, samples };
-      },
-      { xpath: args.xpath, contextXpath: args["context-xpath"] || null },
-    );
-    process.stdout.write(`${JSON.stringify({ role: args.role, xpath: args.xpath, ...result }, null, 2)}\n`);
+    const results = [];
+    for (const check of checks) {
+      if (snapshotError.has(check.role)) {
+        results.push({
+          rule: check.rule,
+          role: check.role,
+          xpath: check.xpath,
+          count: 0,
+          sample: null,
+          error: snapshotError.get(check.role),
+        });
+        continue;
+      }
+      const page = await browser.newPage();
+      try {
+        await page.setContent(htmlByRole.get(check.role), { waitUntil: "domcontentloaded" });
+        const result = await page.evaluate(
+          ({ xpath, contextXpath }) => {
+            const evaluate = (expression, root) => {
+              const result = document.evaluate(
+                expression,
+                root,
+                null,
+                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                null,
+              );
+              return Array.from({ length: result.snapshotLength }, (_, index) => result.snapshotItem(index));
+            };
+            const roots = contextXpath ? evaluate(contextXpath, document) : [document];
+            const matches = roots.flatMap((root) => evaluate(xpath, root));
+            const samples = matches.slice(0, 8).map((node) => ({
+              node: node.nodeName,
+              value:
+                node.nodeType === Node.ATTRIBUTE_NODE || node.nodeType === Node.TEXT_NODE
+                  ? node.nodeValue?.trim().slice(0, 500)
+                  : node.textContent?.replace(/\s+/g, " ").trim().slice(0, 500),
+              href: node instanceof Element ? node.getAttribute("href") : null,
+              class: node instanceof Element ? node.getAttribute("class") : null,
+              id: node instanceof Element ? node.id || null : null,
+            }));
+            return { root_count: roots.length, count: matches.length, samples };
+          },
+          { xpath: check.xpath, contextXpath: check.contextXpath || null },
+        );
+        results.push({
+          rule: check.rule,
+          role: check.role,
+          xpath: check.xpath,
+          count: result.count,
+          root_count: result.root_count,
+          sample: result.samples[0]?.value ?? null,
+          samples: result.samples,
+        });
+      } catch (error) {
+        results.push({
+          rule: check.rule,
+          role: check.role,
+          xpath: check.xpath,
+          count: 0,
+          sample: null,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        await page.close().catch(() => {});
+      }
+    }
+    // rule/role/xpath/count/sample 字段与服务端 selector_checks schema 对齐，
+    // 可直接转录进结构化输出。
+    process.stdout.write(`${JSON.stringify({ checks: results }, null, 2)}\n`);
   } finally {
     await browser.close();
   }

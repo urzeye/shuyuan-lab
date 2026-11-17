@@ -1,0 +1,63 @@
+{
+  "sourceName": "69书吧",
+  "sourceUrl": "https://www.69shuba.com",
+  "enable": 1,
+  "weight": "9000",
+  "miniAppVersion": "2.53.2",
+  "lastModifyTime": "0",
+  "sourceType": "text",
+  "searchBook": {
+    "actionID": "searchBook",
+    "parserID": "DOM",
+    "responseFormatType": "html",
+    "host": "https://www.69shuba.com",
+    "requestInfo": "@js:\nlet url = config.host + '/modules/article/search.php';\nlet hp = {searchkey: params.keyWord, searchtype: 'all'};\nreturn {url: url, POST: true, httpParams: hp};",
+    "list": "//div[@class='newbox']/ul/li",
+    "bookName": "normalize-space(.//div[@class='newnav']/h3/a[2])",
+    "author": ".//div[@class='labelbox']/label[1]/text()",
+    "cover": ".//a[@class='imgbox']/img/@src",
+    "desc": "normalize-space(.//ol[@class='ellipsis_2'])",
+    "cat": ".//div[@class='labelbox']/label[2]/text()",
+    "status": ".//div[@class='labelbox']/label[3]/text()",
+    "detailUrl": ".//div[@class='newnav']/h3/a[2]/@href ||@js:\nreturn new URL(result, params.responseUrl).href;"
+  },
+  "bookDetail": {
+    "actionID": "bookDetail",
+    "parserID": "DOM",
+    "responseFormatType": "html",
+    "host": "https://www.69shuba.com",
+    "bookName": "//meta[@property='og:novel:book_name']/@content",
+    "author": "//meta[@property='og:novel:author']/@content",
+    "cover": "//meta[@property='og:image']/@content",
+    "desc": "//meta[@property='og:description']/@content",
+    "cat": "//meta[@property='og:novel:category']/@content",
+    "status": "//meta[@property='og:novel:status']/@content",
+    "wordCount": "//div[@class='booknav2']/p[3]/text() |@js:\nlet m = result.match(/([\\d.]+万字)/);\nreturn m ? m[1] : result;",
+    "lastChapterTitle": "//meta[@property='og:novel:latest_chapter_name']/@content"
+  },
+  "chapterList": {
+    "actionID": "chapterList",
+    "parserID": "DOM",
+    "responseFormatType": "html",
+    "host": "https://www.69shuba.com",
+    "requestInfo": "@js:\nlet base = params.responseUrl.replace(/\\.htm$/, '/');\nreturn {url: base, POST: false, httpHeaders: config.httpHeaders};",
+    "list": "//div[@id='catalog']/ul/li",
+    "title": ".//a/text()",
+    "url": ".//a/@href ||@js:\nreturn new URL(result, params.responseUrl).href;"
+  },
+  "chapterContent": {
+    "actionID": "chapterContent",
+    "parserID": "DOM",
+    "responseFormatType": "html",
+    "host": "https://www.69shuba.com",
+    "content": "//div[@class='txtnav'] |@js:\nresult = result.replace(/<div[^>]*class=\"[^\"]*contentadv[^\"]*\"[^>]*>[\\s\\S]*?<\\/div>/gi, '');\nresult = result.replace(/<div[^>]*class=\"[^\"]*bottom-ad[^\"]*\"[^>]*>[\\s\\S]*?<\\/div>/gi, '');\nreturn result;",
+    "nextPageUrl": "//div[@class='page1']/a[contains(text(),'下一章')]/@href ||@js:\nreturn new URL(result, params.responseUrl).href;"
+  },
+  "bookWorld": {},
+  "shudanList": {},
+  "shudanDetail": { "actionID": "shudanDetail", "parserID": "DOM" },
+  "shupingList": { "actionID": "shupingList", "parserID": "DOM" },
+  "shupingHome": { "actionID": "shupingHome", "parserID": "DOM" },
+  "searchShudan": { "actionID": "searchShudan", "parserID": "DOM" },
+  "relatedWord": { "actionID": "relatedWord", "parserID": "DOM" }
+}

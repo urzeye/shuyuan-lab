@@ -62,6 +62,21 @@ async function readChallengeStateDuringNavigation(page) {
   return null;
 }
 
+// Turnstile token 的 input 在跨域 challenge iframe 内，主页面 DOM 查不到。
+// 在 challenge frame 内 evaluate 才能拿到真实状态。
+async function hasFrameTurnstileToken(page) {
+  for (const frame of page.frames()) {
+    if (!frame.url().includes("challenges.cloudflare.com")) continue;
+    const has = await frame
+      .evaluate(
+        () => Boolean(document.querySelector('[name="cf-turnstile-response"]')?.value),
+      )
+      .catch(() => false);
+    if (has) return true;
+  }
+  return false;
+}
+
 async function clickFrameCheckbox(page) {
   const frame = page.frames().find((item) => item.url().includes("challenges.cloudflare.com"));
   if (!frame) return null;
@@ -199,7 +214,8 @@ export async function clearCloudflare(page, timeoutMs = 90_000) {
       await page.waitForTimeout(2_000);
       continue;
     }
-    if (hasChallengeFrame && !state.hasToken && Date.now() >= nextClickAt) {
+    const frameHasToken = hasChallengeFrame && (await hasFrameTurnstileToken(page));
+    if (hasChallengeFrame && !state.hasToken && !frameHasToken && Date.now() >= nextClickAt) {
       attempts += 1;
       const frameMethod = await clickFrameCheckbox(page).catch(() => null);
       const click = frameMethod

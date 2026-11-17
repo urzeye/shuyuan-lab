@@ -43,7 +43,9 @@ export const generatedSourceSchema = {
             chapters: { type: "string" },
             content: { type: "string" },
           },
-          required: ["home", "search", "detail", "chapters", "content"],
+          // 只强制 home：链路断裂时 agent 必须能如实只上报已捕获的环节，
+          // 缺失环节由服务端 validator 依据 selector_checks 判定失败。
+          required: ["home"],
           additionalProperties: false,
         },
         challenge_detected: { type: "boolean" },
