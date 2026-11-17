@@ -18,8 +18,12 @@
           <button
             class="drawer-close"
             @click="$emit('update:modelValue', null)"
+            title="关闭"
           >
-            ✕
+            <Icon
+              name="x"
+              :size="14"
+            />
           </button>
         </div>
         <div class="drawer-body">
@@ -37,6 +41,8 @@
 </template>
 
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
+
 defineProps<{ modelValue: unknown; title?: string }>();
 defineEmits<{ "update:modelValue": [val: null] }>();
 </script>
@@ -77,12 +83,14 @@ defineEmits<{ "update:modelValue": [val: null] }>();
 .drawer-close {
   background: none;
   border: none;
-  font-size: 16px;
   cursor: pointer;
   color: var(--text2);
-  padding: 4px 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 6px;
-  line-height: 1;
 }
 .drawer-close:hover {
   background: var(--surface2);

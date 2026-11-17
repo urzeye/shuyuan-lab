@@ -3,19 +3,25 @@
     <!-- Toolbar -->
     <div class="s-toolbar">
       <div class="s-stats">
-        共 <strong>{{ store.sourceCount }}</strong> 个书源， 启用
-        <strong class="green">{{ store.enabledCount }}</strong
-        >， 禁用
-        <strong class="muted">{{
-          store.sourceCount - store.enabledCount
-        }}</strong>
+        共 <strong>{{ store.sourceCount }}</strong> 条
+        <span class="s-stats-sep">·</span> 启用
+        <strong class="green">{{ store.enabledCount }}</strong>
+        <span class="s-stats-sep">·</span> 禁用
+        <strong class="muted">{{ store.sourceCount - store.enabledCount }}</strong>
       </div>
-      <input
-        v-model="search"
-        class="s-search"
-        placeholder="搜索书源名称或网址…"
-        @input="resetPage"
-      />
+      <div class="s-search-wrap">
+        <Icon
+          name="search"
+          :size="14"
+          class="s-search-icon"
+        />
+        <input
+          v-model="search"
+          class="s-search"
+          placeholder="搜索书源名称或网址…"
+          @input="resetPage"
+        />
+      </div>
       <div class="s-actions">
         <!-- Batch actions (visible when items selected) -->
         <template v-if="selected.size > 0">
@@ -24,18 +30,30 @@
             class="btn btn-xs btn-success"
             @click="batchEnable"
           >
+            <Icon
+              name="check"
+              :size="12"
+            />
             批量启用
           </button>
           <button
-            class="btn btn-xs btn-warn"
+            class="btn btn-xs btn-muted"
             @click="batchDisable"
           >
+            <Icon
+              name="ban"
+              :size="12"
+            />
             批量禁用
           </button>
           <button
             class="btn btn-xs btn-danger"
             @click="batchDelete"
           >
+            <Icon
+              name="trash"
+              :size="12"
+            />
             批量删除
           </button>
           <button
@@ -46,14 +64,18 @@
           </button>
         </template>
         <template v-else>
-          <!-- <button
-            class="btn btn-xs btn-primary"
+          <button
+            class="btn btn-xs btn-muted"
             @click="openAdd"
           >
-            + 新增书源
-          </button> -->
+            <Icon
+              name="plus"
+              :size="12"
+            />
+            新增书源
+          </button>
           <button
-            class="btn btn-xs btn-success"
+            class="btn btn-xs btn-muted"
             @click="store.setAllEnabled(true)"
           >
             全部启用
@@ -69,13 +91,21 @@
             class="btn btn-xs btn-muted"
             @click="checkerOpen = !checkerOpen"
           >
-            🔍 有效性检测
+            <Icon
+              name="activity"
+              :size="12"
+            />
+            有效性检测
           </button>
           <button
-            class="btn btn-xs btn-primary"
+            class="btn btn-xs btn-blue"
             @click="store.activeTab = 'ai'"
           >
-            🤖 AI 生成书源
+            <Icon
+              name="sparkles"
+              :size="12"
+            />
+            AI 生成书源
           </button>
         </template>
       </div>
@@ -172,17 +202,24 @@
             <td class="td-date">{{ formatDate(row.lastModifyTime) }}</td>
             <td class="td-ops">
               <button
-                class="btn btn-xs"
-                :class="row.enable ? 'btn-warn' : 'btn-success'"
+                class="switch"
+                :class="{ on: row.enable }"
+                :title="row.enable ? '点击禁用' : '点击启用'"
+                :aria-checked="row.enable"
+                role="switch"
                 @click="store.toggleSource(row._key)"
               >
-                {{ row.enable ? "禁用" : "启用" }}
+                <span class="switch-thumb"></span>
               </button>
               <button
-                class="btn btn-xs btn-danger"
+                class="btn btn-xs btn-ghost danger-hover"
+                title="删除该书源"
                 @click="confirmDelete(row._key, row.sourceName)"
               >
-                删除
+                <Icon
+                  name="trash"
+                  :size="13"
+                />
               </button>
             </td>
           </tr>
@@ -244,12 +281,25 @@
     v-model="detailKey"
     :title="detailTitle"
   >
-    <textarea
+    <div
       v-if="detailKey !== null"
-      v-model="detailJson"
-      class="detail-json"
-      spellcheck="false"
-    />
+      class="detail-editor-wrap"
+    >
+      <JsonEditor
+        v-model="detailJson"
+        class="detail-editor"
+      />
+      <div
+        class="detail-status"
+        :class="{ invalid: detailError }"
+      >
+        <Icon
+          :name="detailError ? 'x-circle' : 'check-circle'"
+          :size="13"
+        />
+        {{ detailError ? `JSON 错误：${detailError}` : "JSON 格式有效" }}
+      </div>
+    </div>
     <template #footer>
       <button
         class="btn btn-sm btn-muted"
@@ -259,6 +309,7 @@
       </button>
       <button
         class="btn btn-sm btn-primary"
+        :disabled="Boolean(detailError)"
         @click="saveDetail"
       >
         保存
@@ -307,7 +358,7 @@
         <span>启用</span>
       </label>
       <div class="form-hint">
-        其余字段可保存后点击书源名称在 JSON 编辑器中完善
+        其余字段可在保存后点击书源名称，在 JSON 编辑器中完善
       </div>
     </form>
     <template #footer>
@@ -327,6 +378,15 @@
       </button>
     </template>
   </SourceDrawer>
+
+  <!-- Delete confirmation -->
+  <ConfirmDialog
+    :open="deleteConfirm.open"
+    :title="deleteConfirm.title"
+    :message="deleteConfirm.message"
+    @confirm="runDelete"
+    @cancel="deleteConfirm.open = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -334,6 +394,9 @@ import { ref, computed } from "vue";
 import { useEditorStore } from "@/stores/editor";
 import SourceDrawer from "@/components/SourceDrawer.vue";
 import CheckerPanel from "@/components/CheckerPanel.vue";
+import ConfirmDialog from "@/components/ConfirmDialog.vue";
+import JsonEditor from "@/components/JsonEditor.vue";
+import Icon from "@/components/Icon.vue";
 import type { BookSource } from "@/lib/types";
 
 const store = useEditorStore();
@@ -427,10 +490,32 @@ function batchDisable() {
   selected.value.forEach((k) => store.setSourceEnabled(k, false));
   selected.value = new Set();
 }
+// ── Delete confirmation ─────────────────────────────────────
+const deleteConfirm = ref({
+  open: false,
+  title: "",
+  message: "",
+  action: null as null | (() => void),
+});
+
+function askDelete(title: string, message: string, action: () => void) {
+  deleteConfirm.value = { open: true, title, message, action };
+}
+function runDelete() {
+  deleteConfirm.value.action?.();
+  deleteConfirm.value.open = false;
+}
+
 function batchDelete() {
-  if (!confirm(`确定删除选中的 ${selected.value.size} 条书源？`)) return;
-  selected.value.forEach((k) => store.deleteSource(k));
-  selected.value = new Set();
+  const count = selected.value.size;
+  askDelete(
+    "批量删除书源",
+    `将删除选中的 ${count} 条书源，此操作不可撤销。`,
+    () => {
+      selected.value.forEach((k) => store.deleteSource(k));
+      selected.value = new Set();
+    },
+  );
 }
 
 function formatDate(v: string | number | undefined): string {
@@ -445,7 +530,9 @@ function formatDate(v: string | number | undefined): string {
 }
 
 function confirmDelete(key: string, name: string) {
-  if (confirm(`确定删除书源「${name}」？`)) store.deleteSource(key);
+  askDelete("删除书源", `将删除书源「${name}」，此操作不可撤销。`, () =>
+    store.deleteSource(key),
+  );
 }
 
 // ── Detail Drawer ────────────────────────────────────────────
@@ -455,6 +542,15 @@ const detailTitle = computed(() => {
   if (!detailKey.value) return "";
   const s = store.sources.find((x) => x._key === detailKey.value);
   return s ? `编辑：${s.sourceName}` : "编辑书源";
+});
+const detailError = computed(() => {
+  if (!detailKey.value) return null;
+  try {
+    JSON.parse(detailJson.value);
+    return null;
+  } catch (e) {
+    return (e as Error).message;
+  }
 });
 
 function openDetail(key: string) {
@@ -470,8 +566,8 @@ function saveDetail() {
     const obj = JSON.parse(detailJson.value) as Record<string, unknown>;
     store.updateSource(detailKey.value, obj);
     detailKey.value = null;
-  } catch {
-    alert("JSON 格式有误，请检查后再保存");
+  } catch (e) {
+    store.toast(`保存失败：${(e as Error).message}`, "err");
   }
 }
 
@@ -486,7 +582,7 @@ function openAdd() {
 
 function saveAdd() {
   if (!addForm.value.sourceName.trim() || !addForm.value.sourceUrl.trim()) {
-    alert("书源名称和网址为必填项");
+    store.toast("书源名称和网址为必填项", "warn");
     return;
   }
   store.addSource({
@@ -523,9 +619,11 @@ function saveAdd() {
   font-size: 13px;
   color: var(--text2);
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .s-stats strong {
   color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 .s-stats strong.green {
   color: var(--green);
@@ -533,15 +631,31 @@ function saveAdd() {
 .s-stats strong.muted {
   color: var(--text3);
 }
-.s-search {
+.s-stats-sep {
+  color: var(--border-strong);
+  margin: 0 2px;
+}
+.s-search-wrap {
+  position: relative;
   flex: 1;
   min-width: 200px;
   max-width: 320px;
+  display: flex;
+  align-items: center;
+}
+.s-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text3);
+  pointer-events: none;
+}
+.s-search {
+  width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
-  padding: 6px 12px;
+  padding: 6px 12px 6px 30px;
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
@@ -590,9 +704,7 @@ th {
   text-align: left;
   color: var(--text3);
   font-weight: 600;
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  font-size: 12px;
   border-bottom: 1px solid var(--border);
   background: var(--surface2);
   white-space: nowrap;
@@ -624,7 +736,7 @@ tr:last-child td {
   border-bottom: none;
 }
 tr:hover td {
-  background: rgba(108, 143, 255, 0.04);
+  background: #fafafa;
 }
 
 .td-name {
@@ -657,6 +769,7 @@ tr:hover td {
   display: flex;
   gap: 5px;
   white-space: nowrap;
+  align-items: center;
 }
 .muted {
   color: var(--text3);
@@ -675,12 +788,48 @@ tr:hover td {
   font-weight: 600;
 }
 .badge-on {
-  background: rgba(52, 211, 153, 0.15);
+  background: var(--green-soft);
   color: var(--green);
+  border: 1px solid #bbf7d0;
 }
 .badge-off {
-  background: rgba(100, 116, 139, 0.15);
+  background: var(--surface2);
   color: var(--text3);
+  border: 1px solid var(--border);
+}
+
+/* 启用开关 */
+.switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface2);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+  flex-shrink: 0;
+}
+.switch-thumb {
+  position: absolute;
+  top: 1.5px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.switch.on {
+  background: var(--green);
+  border-color: var(--green);
+}
+.switch.on .switch-thumb {
+  transform: translateX(14px);
 }
 
 .pagination {
@@ -739,22 +888,29 @@ tr:hover td {
   text-decoration-color: var(--accent);
 }
 
-.detail-json {
-  width: 100%;
-  height: calc(100vh - 180px);
-  font-family: "JetBrains Mono", "Fira Code", monospace;
-  font-size: 13px;
-  line-height: 1.6;
+.detail-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: calc(100vh - 170px);
+}
+.detail-editor {
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px;
-  background: var(--surface2);
-  color: var(--text);
-  resize: none;
-  outline: none;
+  overflow: hidden;
 }
-.detail-json:focus {
-  border-color: var(--accent);
+.detail-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--green);
+  padding: 0 2px;
+}
+.detail-status.invalid {
+  color: var(--red);
 }
 
 .add-form {

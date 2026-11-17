@@ -7,13 +7,23 @@
       >
         <!-- Header -->
         <div class="cp-head">
-          <span class="cp-title">🔍 有效性检测</span>
+          <span class="cp-title">
+            <Icon
+              name="activity"
+              :size="15"
+            />
+            有效性检测
+          </span>
           <div class="cp-head-note">通过搜索 API 检测书源是否可达</div>
           <button
             class="cp-close"
             @click="$emit('close')"
+            title="关闭"
           >
-            ✕
+            <Icon
+              name="x"
+              :size="14"
+            />
           </button>
         </div>
 
@@ -22,7 +32,11 @@
           v-if="httpWarning"
           class="cp-http-warn"
         >
-          ⚠ 当前运行在 HTTPS 页面（GitHub Pages），HTTP
+          <Icon
+            name="alert-triangle"
+            :size="13"
+          />
+          当前运行在 HTTPS 页面（GitHub Pages），HTTP
           书源无法被浏览器检测，将自动跳过。在本地运行可检测所有书源。
         </div>
 
@@ -94,9 +108,27 @@
             />
           </div>
           <div class="cp-summary">
-            <span class="sum-ok">✓ {{ checker.summary.value.ok }}</span>
-            <span class="sum-err">✗ {{ checker.summary.value.err }}</span>
-            <span class="sum-skip">— {{ checker.summary.value.skip }}</span>
+            <span class="sum-ok">
+              <Icon
+                name="check-circle"
+                :size="12"
+              />
+              {{ checker.summary.value.ok }}
+            </span>
+            <span class="sum-err">
+              <Icon
+                name="x-circle"
+                :size="12"
+              />
+              {{ checker.summary.value.err }}
+            </span>
+            <span class="sum-skip">
+              <Icon
+                name="minus"
+                :size="12"
+              />
+              {{ checker.summary.value.skip }}
+            </span>
             <span class="sum-total">/ {{ checker.summary.value.total }}</span>
           </div>
         </div>
@@ -107,7 +139,7 @@
             v-if="checker.results.value.length === 0"
             class="cp-empty"
           >
-            输入关键词并点击「开始检测」
+            输入关键词，点击「开始检测」逐站验证搜索可用性
           </div>
           <div
             v-for="r in checker.results.value"
@@ -115,7 +147,17 @@
             class="cp-row"
             :class="r.status"
           >
-            <span class="cp-status-icon">{{ statusIcon(r.status) }}</span>
+            <span class="cp-status-icon">
+              <span
+                v-if="r.status === 'checking'"
+                class="cp-spinner"
+              ></span>
+              <Icon
+                v-else
+                :name="statusIcon(r.status)"
+                :size="13"
+              />
+            </span>
             <span
               class="cp-name"
               :title="r.name"
@@ -134,6 +176,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useSourceChecker } from "@/composables/useSourceChecker";
+import Icon from "@/components/Icon.vue";
 import type { BookSource } from "@/lib/types";
 
 const props = defineProps<{ open: boolean; sources: BookSource[] }>();
@@ -154,8 +197,9 @@ const progress = computed(() => {
 
 function statusIcon(status: string) {
   return (
-    { pending: "○", checking: "⌛", ok: "✓", err: "✗", skip: "—" }[status] ??
-    "?"
+    { pending: "clock", ok: "check-circle", err: "x-circle", skip: "minus" }[
+      status
+    ] ?? "info"
   );
 }
 
@@ -193,6 +237,10 @@ function tryStart() {
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
 .cp-head-note {
   font-size: 12px;
@@ -203,9 +251,12 @@ function tryStart() {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 14px;
   color: var(--text2);
-  padding: 4px 8px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 6px;
 }
 .cp-close:hover {
@@ -214,12 +265,15 @@ function tryStart() {
 
 .cp-http-warn {
   padding: 8px 16px;
-  background: #fff8e1;
-  color: #7a5500;
-  border-bottom: 1px solid #ffe082;
+  background: var(--amber-soft);
+  color: var(--amber);
+  border-bottom: 1px solid var(--amber-border);
   font-size: 12px;
   line-height: 1.5;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .cp-controls {
@@ -296,6 +350,12 @@ function tryStart() {
   font-size: 12px;
   font-weight: 600;
 }
+.cp-summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
 .sum-ok {
   color: var(--green);
 }
@@ -341,27 +401,13 @@ function tryStart() {
 .cp-row:hover {
   background: var(--surface2);
 }
-.cp-row.ok {
-  border-left: 3px solid var(--green);
-}
-.cp-row.err {
-  border-left: 3px solid var(--red);
-}
-.cp-row.checking {
-  border-left: 3px solid var(--yellow);
-}
-.cp-row.skip {
-  border-left: 3px solid var(--border);
-}
-.cp-row.pending {
-  border-left: 3px solid transparent;
-}
-
 .cp-status-icon {
   flex-shrink: 0;
   width: 18px;
-  text-align: center;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
 }
 .cp-row.ok .cp-status-icon {
   color: var(--green);
@@ -369,8 +415,24 @@ function tryStart() {
 .cp-row.err .cp-status-icon {
   color: var(--red);
 }
+.cp-row.checking {
+  background: var(--blue-soft);
+}
 .cp-row.checking .cp-status-icon {
-  color: var(--yellow);
+  color: var(--blue);
+}
+.cp-spinner {
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--border-strong);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: cp-spin 0.7s linear infinite;
+}
+@keyframes cp-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .cp-name {
@@ -396,5 +458,11 @@ function tryStart() {
 .checker-slide-enter-from,
 .checker-slide-leave-to {
   transform: translateY(100%);
+}
+
+@media (max-width: 960px) {
+  .checker-panel {
+    left: 60px;
+  }
 }
 </style>

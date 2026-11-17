@@ -7,7 +7,12 @@
           :key="t.id"
           :class="['toast', `toast-${t.type}`]"
         >
-          <span class="toast-icon">{{ ICONS[t.type] }}</span>
+          <span class="toast-icon">
+            <Icon
+              :name="ICONS[t.type]"
+              :size="15"
+            />
+          </span>
           <span>{{ t.msg }}</span>
         </div>
       </TransitionGroup>
@@ -16,11 +21,17 @@
 </template>
 
 <script setup lang="ts">
+import Icon from "@/components/Icon.vue";
 import type { ToastItem } from "@/lib/types";
 
 defineProps<{ toasts: ToastItem[] }>();
 
-const ICONS = { ok: "✅", err: "❌", info: "ℹ️", warn: "⚠️" };
+const ICONS = {
+  ok: "check-circle",
+  err: "x-circle",
+  info: "info",
+  warn: "alert-triangle",
+};
 </script>
 
 <style scoped>
@@ -45,29 +56,25 @@ const ICONS = { ok: "✅", err: "❌", info: "ℹ️", warn: "⚠️" };
   min-width: 200px;
   max-width: 360px;
   pointer-events: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
 }
-.toast-ok {
-  background: #064e3b;
-  border: 1px solid #065f46;
-  color: #34d399;
+.toast-ok .toast-icon {
+  color: var(--green);
 }
-.toast-err {
-  background: #450a0a;
-  border: 1px solid #7f1d1d;
-  color: #f87171;
+.toast-err .toast-icon {
+  color: var(--red);
 }
-.toast-info {
-  background: #1e1b4b;
-  border: 1px solid #312e81;
-  color: #a5b4fc;
+.toast-info .toast-icon {
+  color: var(--blue);
 }
-.toast-warn {
-  background: #451a03;
-  border: 1px solid #78350f;
-  color: #fbbf24;
+.toast-warn .toast-icon {
+  color: var(--amber);
 }
 .toast-icon {
-  font-size: 15px;
+  display: inline-flex;
   flex-shrink: 0;
 }
 

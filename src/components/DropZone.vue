@@ -13,7 +13,12 @@
       :accept="accept"
       @change="onChange"
     />
-    <div class="dz-icon">{{ icon }}</div>
+    <div class="dz-icon">
+      <Icon
+        :name="icon"
+        :size="22"
+      />
+    </div>
     <div class="dz-title">{{ title }}</div>
     <div class="dz-sub">{{ sub }}</div>
   </div>
@@ -21,6 +26,7 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
+import Icon from "@/components/Icon.vue";
 
 const props = defineProps<{
   accept: string;
@@ -55,28 +61,53 @@ function onDrop(e: DragEvent) {
 
 <style scoped>
 .dropzone {
-  border: 2px dashed var(--border);
+  border: 1.5px dashed var(--border-strong);
   border-radius: 12px;
-  padding: 28px 20px;
+  padding: 30px 20px;
   text-align: center;
   cursor: pointer;
   transition:
-    border-color 0.2s,
-    background 0.2s;
+    border-color 0.18s,
+    background 0.18s,
+    transform 0.18s;
   background: var(--surface);
   user-select: none;
 }
-.dropzone:hover,
+.dropzone:hover {
+  border-color: var(--border-focus);
+  background: var(--surface2);
+}
 .drag-over {
-  border-color: var(--accent);
-  background: rgba(108, 143, 255, 0.06);
+  border-color: var(--blue);
+  background: var(--blue-soft);
 }
 input {
   display: none;
 }
 .dz-icon {
-  font-size: 32px;
-  margin-bottom: 8px;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 10px;
+  border-radius: 11px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    color 0.18s,
+    border-color 0.18s,
+    background 0.18s;
+}
+.dropzone:hover .dz-icon {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.drag-over .dz-icon {
+  color: var(--blue);
+  border-color: var(--blue);
+  background: #fff;
 }
 .dz-title {
   font-size: 14px;

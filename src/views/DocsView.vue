@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { marked } from "marked";
 import mdContent from "../../香色闺阁书源规则.md?raw";
 
@@ -9,13 +9,97 @@ marked.setOptions({
 });
 
 const htmlContent = computed(() => marked(mdContent) as string);
+
+// ── TOC + scroll-spy ────────────────────────────────────────
+const scrollRef = ref<HTMLElement>();
+const toc = ref<Array<{ id: string; text: string }>>([]);
+const activeId = ref("");
+
+function buildToc() {
+  const root = scrollRef.value?.querySelector(".docs-article");
+  if (!root) return;
+  const headings = [...root.querySelectorAll("h2")];
+  toc.value = headings.map((h, i) => {
+    const id = `sec-${i}`;
+    h.id = id;
+    return { id, text: h.textContent || id };
+  });
+}
+
+function onScroll() {
+  const container = scrollRef.value;
+  if (!container || toc.value.length === 0) return;
+  // App 用 v-show 切换视图，隐藏时几何信息全为 0，跳过以免算出错误高亮
+  if (container.offsetParent === null) return;
+  const containerRect = container.getBoundingClientRect();
+  const offset = container.scrollTop + 96;
+  let current = toc.value[0]?.id || "";
+  for (const item of toc.value) {
+    const el = container.querySelector<HTMLElement>(`#${item.id}`);
+    if (!el) continue;
+    const top =
+      el.getBoundingClientRect().top - containerRect.top + container.scrollTop;
+    if (top <= offset) current = item.id;
+    else break;
+  }
+  activeId.value = current;
+}
+
+function scrollTo(id: string) {
+  const container = scrollRef.value;
+  const el = container?.querySelector<HTMLElement>(`#${id}`);
+  if (!container || !el) return;
+  const top =
+    el.getBoundingClientRect().top -
+    container.getBoundingClientRect().top +
+    container.scrollTop;
+  container.scrollTo({ top: top - 24, behavior: "smooth" });
+}
+
+let resizeObserver: ResizeObserver | undefined;
+
+onMounted(() => {
+  buildToc();
+  onScroll();
+  scrollRef.value?.addEventListener("scroll", onScroll, { passive: true });
+  // v-show 从隐藏切回可见时尺寸从 0 恢复，借此刷新一次高亮
+  if (scrollRef.value) {
+    resizeObserver = new ResizeObserver(onScroll);
+    resizeObserver.observe(scrollRef.value);
+  }
+});
+onBeforeUnmount(() => {
+  scrollRef.value?.removeEventListener("scroll", onScroll);
+  resizeObserver?.disconnect();
+});
 </script>
 
 <template>
   <div class="docs-outer">
-    <div class="docs-scroll">
+    <div
+      class="docs-scroll"
+      ref="scrollRef"
+    >
       <article class="docs-article" v-html="htmlContent"></article>
     </div>
+    <aside
+      v-if="toc.length > 2"
+      class="docs-toc"
+    >
+      <div class="toc-title">目录</div>
+      <nav class="toc-nav">
+        <a
+          v-for="item in toc"
+          :key="item.id"
+          class="toc-link"
+          :class="{ active: activeId === item.id }"
+          @click.prevent="scrollTo(item.id)"
+          href="#"
+        >
+          {{ item.text }}
+        </a>
+      </nav>
+    </aside>
   </div>
 </template>
 
@@ -23,7 +107,6 @@ const htmlContent = computed(() => marked(mdContent) as string);
 /* ── Layout ── */
 .docs-outer {
   display: flex;
-  flex-direction: column;
   height: 100%;
   background: var(--bg);
 }
@@ -32,6 +115,7 @@ const htmlContent = computed(() => marked(mdContent) as string);
   flex: 1;
   overflow-y: auto;
   padding: 48px 24px 80px;
+  min-width: 0;
 }
 
 .docs-article {
@@ -40,6 +124,52 @@ const htmlContent = computed(() => marked(mdContent) as string);
   line-height: 1.75;
   color: var(--text);
   font-size: 15px;
+}
+
+/* ── TOC ── */
+.docs-toc {
+  width: 216px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+  padding: 24px 16px;
+}
+.toc-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+.toc-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.toc-link {
+  font-size: 12.5px;
+  color: var(--text2);
+  text-decoration: none;
+  padding: 5px 10px;
+  border-radius: 6px;
+  line-height: 1.45;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.toc-link:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+.toc-link.active {
+  background: var(--accent-light);
+  color: var(--text);
+  font-weight: 600;
+}
+@media (max-width: 1200px) {
+  .docs-toc {
+    display: none;
+  }
 }
 
 /* ── Headings ── */
@@ -68,21 +198,7 @@ const htmlContent = computed(() => marked(mdContent) as string);
   color: var(--text);
   margin: 48px 0 16px;
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--border);
-  position: relative;
-}
-
-.docs-article :deep(h2)::before {
-  content: "";
-  display: inline-block;
-  width: 3px;
-  height: 1.375rem;
-  background: var(--accent);
-  border-radius: 2px;
-  margin-right: 10px;
-  vertical-align: middle;
-  position: relative;
-  top: -1px;
+  border-bottom: 1px solid var(--border);
 }
 
 .docs-article :deep(h3) {
@@ -93,14 +209,10 @@ const htmlContent = computed(() => marked(mdContent) as string);
 }
 
 .docs-article :deep(h4) {
-  font-size: 0.9375rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--text2);
   margin: 24px 0 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-size: 0.8125rem;
-  color: var(--text3);
 }
 
 /* ── Paragraphs & Body Text ── */
@@ -144,7 +256,7 @@ const htmlContent = computed(() => marked(mdContent) as string);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 1px 6px;
-  color: #c7254e;
+  color: var(--text);
   white-space: nowrap;
 }
 

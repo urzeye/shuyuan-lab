@@ -8,22 +8,22 @@
       <div class="upload-grid">
         <DropZone
           accept=".xbs"
-          icon="🔒"
+          icon="file-lock"
           title="导入 XBS"
           sub="自动解密并展示为 JSON"
           @file="store.loadXbsFile"
         />
-        <div class="upload-or">or</div>
+        <div class="upload-or">或</div>
         <DropZone
           accept=".json"
-          icon="📝"
+          icon="file-json"
           title="导入 JSON"
           sub="加载现有明文 JSON"
           @file="store.loadJsonFile"
         />
       </div>
       <p class="upload-hint">
-        拖拽文件到此处，或点击选择 · 系统会在浏览器本地处理，不上传数据
+        拖拽文件到此处，或点击选择 · 文件仅在浏览器本地处理，不会上传
       </p>
     </div>
 
@@ -36,7 +36,11 @@
       <div class="panel">
         <div class="panel-head">
           <span class="panel-label">
-            <span class="dot dot-green"></span>书源内容 (JSON)
+            <Icon
+              name="braces"
+              :size="14"
+            />
+            书源内容 JSON
           </span>
           <span
             v-if="store.jsonSize"
@@ -48,7 +52,11 @@
               class="btn btn-sm btn-muted"
               title="导入 JSON 文件"
             >
-              📂
+              <Icon
+                name="upload"
+                :size="14"
+              />
+              导入
               <input
                 type="file"
                 accept=".json"
@@ -59,7 +67,11 @@
               class="btn btn-sm btn-muted"
               @click="store.formatJson"
             >
-              ✨ 格式化 JSON
+              <Icon
+                name="sparkles"
+                :size="14"
+              />
+              格式化
             </button>
           </div>
         </div>
@@ -77,6 +89,7 @@ import { computed } from "vue";
 import { useEditorStore } from "@/stores/editor";
 import DropZone from "@/components/DropZone.vue";
 import JsonEditor from "@/components/JsonEditor.vue";
+import Icon from "@/components/Icon.vue";
 
 const store = useEditorStore();
 
@@ -132,6 +145,17 @@ function onJsonFile(e: Event) {
   font-weight: 600;
   flex-shrink: 0;
 }
+@media (max-width: 720px) {
+  .upload-grid {
+    flex-direction: column;
+  }
+  .upload-grid > :first-child,
+  .upload-grid > :last-child {
+    flex: none;
+    width: 100%;
+    max-width: 320px;
+  }
+}
 .upload-hint {
   font-size: 12px;
   color: var(--text3);
@@ -172,11 +196,9 @@ function onJsonFile(e: Event) {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text2);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
   flex-shrink: 0;
 }
 .panel-meta {
@@ -200,40 +222,6 @@ function onJsonFile(e: Event) {
 .panel-acts input {
   display: none;
 }
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.dot-blue {
-  background: var(--accent);
-}
-.dot-green {
-  background: var(--green);
-}
-
-/* Hex view */
-
-.empty-hint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 8px;
-  color: var(--text3);
-  font-size: 13px;
-}
-.empty-hint span {
-  font-size: 36px;
-}
-.mt {
-  margin-top: 8px;
-}
-
-/* Center column */
 
 /* Flex fill for JsonEditor */
 .flex-fill {

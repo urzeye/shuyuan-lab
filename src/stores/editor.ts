@@ -202,7 +202,7 @@ export const useEditorStore = defineStore("editor", () => {
       sourceName: (v.sourceName as string) || k,
       sourceUrl: (v.sourceUrl as string) || "",
       enable: v.enable !== false,
-      weight: typeof v.weight === "number" ? v.weight : 0,
+      weight: Number(v.weight ?? 0) || 0,
       lastModifyTime: (v.lastModifyTime as string | number) || "",
       _raw: v,
     }));

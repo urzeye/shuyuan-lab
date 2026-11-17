@@ -8,7 +8,12 @@
         <!-- ── Header ── -->
         <div class="ai-header">
           <div class="ai-header-left">
-            <span class="ai-header-icon">✨</span>
+            <span class="ai-header-icon">
+              <Icon
+                name="sparkles"
+                :size="17"
+              />
+            </span>
             <span class="ai-header-title">AI 生成书源</span>
             <span
               v-if="running"
@@ -56,7 +61,13 @@
             <!-- Browser collector -->
             <div class="config-card">
               <div class="card-heading">
-                <span class="card-heading-icon">🛡</span> 浏览器采集
+                <span class="card-heading-icon">
+                  <Icon
+                    name="shield"
+                    :size="13"
+                  />
+                </span>
+                浏览器采集
               </div>
               <div class="proxy-note">
                 由项目级 XBS Skill 启动持久化 Chrome。遇到 Cloudflare 时自动等待 JS
@@ -70,7 +81,13 @@
               class="config-card static-notice"
             >
               <div class="card-heading">
-                <span class="card-heading-icon">⚠️</span> AI 生成不可用
+                <span class="card-heading-icon">
+                  <Icon
+                    name="alert-triangle"
+                    :size="13"
+                  />
+                </span>
+                AI 生成不可用
               </div>
               <div class="static-desc">
                 当前为 GitHub Pages 静态部署，不含后端 Agent 服务与浏览器环境。请在本地运行项目以使用 AI 生成书源功能。
@@ -81,14 +98,24 @@
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                📖 查看本地运行指南
+                <Icon
+                  name="book-open"
+                  :size="12"
+                />
+                查看本地运行指南
               </a>
             </div>
 
             <!-- Site + generate -->
             <div class="config-card generate-card">
               <div class="card-heading">
-                <span class="card-heading-icon">🌐</span> 目标站点
+                <span class="card-heading-icon">
+                  <Icon
+                    name="globe"
+                    :size="13"
+                  />
+                </span>
+                目标站点
               </div>
               <input
                 v-model="siteUrl"
@@ -99,9 +126,8 @@
               />
               <label
                 class="field-label"
-                style="margin-top: 8px"
-                >测试书名（用于实测抓取）</label
-              >
+                >测试书名（用于实测抓取）
+              </label>
               <input
                 v-model="testBook"
                 class="ai-input"
@@ -127,13 +153,22 @@
                   v-if="running"
                   class="spinner"
                 ></span>
-                {{ running ? "生成中..." : "🚀 开始生成" }}
+                <Icon
+                  v-else
+                  name="play"
+                  :size="13"
+                />
+                {{ running ? "生成中…" : "开始生成" }}
               </button>
               <button
                 v-if="running"
                 class="btn-stop"
                 @click="generator.stop()"
               >
+                <Icon
+                  name="stop"
+                  :size="12"
+                />
                 停止
               </button>
             </div>
@@ -146,7 +181,12 @@
               v-if="!steps.length && !errorMsg && isStaticHosting"
               class="empty-state"
             >
-              <div class="empty-icon">🚫</div>
+              <div class="empty-icon">
+                <Icon
+                  name="ban"
+                  :size="40"
+                />
+              </div>
               <div class="empty-title">AI 生成不可用</div>
               <div class="empty-desc">
                 GitHub Pages 为静态部署，不含 Agent 服务与浏览器环境。<br />
@@ -168,7 +208,12 @@
               v-if="!steps.length && !errorMsg && !isStaticHosting"
               class="empty-state"
             >
-              <div class="empty-icon">🤖</div>
+              <div class="empty-icon">
+                <Icon
+                  name="bot"
+                  :size="40"
+                />
+              </div>
               <div class="empty-title">AI 书源生成器</div>
               <div class="empty-desc">
                 输入小说网站地址后点击「开始生成」。<br />
@@ -247,7 +292,13 @@
               v-if="errorMsg"
               class="error-card"
             >
-              <div class="error-card-header">⚠ 生成失败</div>
+              <div class="error-card-header">
+                <Icon
+                  name="alert-triangle"
+                  :size="13"
+                />
+                生成失败
+              </div>
               <pre class="error-body">{{ errorMsg }}</pre>
             </div>
 
@@ -258,7 +309,13 @@
             >
               <div class="result-card-header">
                 <div class="result-title-row">
-                  <span class="result-badge">✅ 生成完成</span>
+                  <span class="result-badge">
+                    <Icon
+                      name="check-circle"
+                      :size="14"
+                    />
+                    生成完成
+                  </span>
                   <span
                     v-if="result.warning"
                     class="result-warn"
@@ -270,13 +327,21 @@
                     class="ra-btn"
                     @click="copyJson"
                   >
-                    {{ copied ? "✓ 已复制" : "复制 JSON" }}
+                    <Icon
+                      :name="copied ? 'check' : 'copy'"
+                      :size="13"
+                    />
+                    {{ copied ? "已复制" : "复制 JSON" }}
                   </button>
                   <button
                     class="ra-btn"
                     @click="regenerate"
                   >
-                    ↺ 重新生成
+                    <Icon
+                      name="refresh-cw"
+                      :size="13"
+                    />
+                    重新生成
                   </button>
                   <button
                     class="ra-btn primary"
@@ -310,6 +375,7 @@
 import { ref, computed, onMounted } from "vue";
 import { useEditorStore } from "@/stores/editor";
 import { useAiSourceGenerator } from "@/composables/useAiSourceGenerator";
+import Icon from "@/components/Icon.vue";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ (e: "close"): void; (e: "added"): void }>();
@@ -408,7 +474,7 @@ async function copyJson() {
   gap: 10px;
 }
 .ai-header-icon {
-  font-size: 18px;
+  display: inline-flex;
 }
 .ai-header-title {
   font-size: 15px;
@@ -524,7 +590,7 @@ async function copyJson() {
   gap: 5px;
 }
 .card-heading-icon {
-  font-size: 13px;
+  display: inline-flex;
 }
 
 .field-label {
@@ -594,7 +660,9 @@ select.ai-input {
   line-height: 1.6;
 }
 .static-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   color: #2563eb;
   text-decoration: none;
@@ -665,16 +733,20 @@ select.ai-input {
   width: 100%;
   padding: 7px 0;
   background: none;
-  border: 1px solid #fca5a5;
+  border: 1px solid #fecaca;
   border-radius: 7px;
   font-size: 12px;
-  color: #dc2626;
+  color: var(--red);
   cursor: pointer;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   transition: background 0.15s;
 }
 .btn-stop:hover {
-  background: #fef2f2;
+  background: var(--red-soft);
 }
 
 .spinner {
@@ -715,7 +787,8 @@ select.ai-input {
   gap: 10px;
 }
 .empty-icon {
-  font-size: 48px;
+  color: var(--text3);
+  opacity: 0.75;
   margin-bottom: 4px;
 }
 .empty-title {
@@ -887,6 +960,9 @@ select.ai-input {
   color: #dc2626;
   border-bottom: 1px solid #fecaca;
   background: #fef2f2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .error-body {
   font-size: 12px;
@@ -929,6 +1005,9 @@ select.ai-input {
   font-size: 13px;
   font-weight: 600;
   color: #15803d;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .result-warn {
   font-size: 11px;
@@ -952,6 +1031,9 @@ select.ai-input {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   transition:
     background 0.15s,
     border-color 0.15s;

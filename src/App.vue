@@ -3,7 +3,12 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="logo">
-        <span class="logo-icon">📖</span>
+        <span class="logo-mark">
+          <Icon
+            name="book-open"
+            :size="15"
+          />
+        </span>
         <div class="logo-text">
           <div class="logo-main">XBS 书源编辑器</div>
           <div class="logo-sub">书源工坊 shuyuan-lab</div>
@@ -17,8 +22,13 @@
           class="nav-item"
           :class="{ active: store.activeTab === item.key }"
           @click="store.activeTab = item.key as any"
+          :title="item.label"
         >
-          <span class="nav-icon">{{ item.icon }}</span>
+          <Icon
+            :name="item.icon"
+            :size="16"
+            class="nav-icon"
+          />
           <span class="nav-label">{{ item.label }}</span>
           <span
             v-if="item.key === 'sources' && store.sourceCount > 0"
@@ -47,9 +57,15 @@
             />
           </svg>
           <span>GitHub</span>
-          <span class="star-hint">⭐ Star</span>
+          <span class="star-hint">
+            <Icon
+              name="star"
+              :size="11"
+            />
+            Star
+          </span>
         </a>
-        <div class="footer-note">本地处理 · 无服务器</div>
+        <div class="footer-note">本地处理 · 数据不上传</div>
       </div>
     </aside>
 
@@ -58,13 +74,21 @@
       <!-- Top bar -->
       <header class="topbar">
         <div class="topbar-title">
-          <span>{{ currentNavItem?.icon }}</span>
+          <Icon
+            v-if="currentNavItem"
+            :name="currentNavItem.icon"
+            :size="16"
+          />
           {{ currentNavItem?.label }}
         </div>
         <div class="topbar-actions">
           <template v-if="store.activeTab === 'editor'">
             <label class="btn btn-sm btn-muted">
-              📂 导入 XBS
+              <Icon
+                name="file-lock"
+                :size="14"
+              />
+              导入 XBS
               <input
                 type="file"
                 accept=".xbs"
@@ -72,7 +96,11 @@
               />
             </label>
             <label class="btn btn-sm btn-muted">
-              📄 导入 JSON
+              <Icon
+                name="file-json"
+                :size="14"
+              />
+              导入 JSON
               <input
                 type="file"
                 accept=".json"
@@ -84,14 +112,22 @@
               :disabled="!store.jsonText"
               @click="store.downloadXbs"
             >
-              ⬇ 导出 XBS
+              <Icon
+                name="download"
+                :size="14"
+              />
+              导出 XBS
             </button>
             <button
-              class="btn btn-sm btn-success"
+              class="btn btn-sm btn-blue"
               :disabled="!store.jsonText"
               @click="store.downloadJson"
             >
-              ⬇ 导出 JSON
+              <Icon
+                name="download"
+                :size="14"
+              />
+              导出 JSON
             </button>
           </template>
           <template
@@ -107,13 +143,20 @@
                 class="btn btn-sm btn-primary split-main"
                 @click="store.downloadXbs"
               >
-                ⬇ XBS
+                <Icon
+                  name="download"
+                  :size="13"
+                />
+                XBS
               </button>
               <button
                 class="btn btn-sm btn-primary split-arrow"
                 @click.stop="xbsOpen = !xbsOpen"
               >
-                ▾
+                <Icon
+                  name="chevron-down"
+                  :size="12"
+                />
               </button>
               <div
                 v-if="xbsOpen"
@@ -146,16 +189,23 @@
               ref="jsonRef"
             >
               <button
-                class="btn btn-sm btn-success split-main"
+                class="btn btn-sm btn-blue split-main"
                 @click="store.downloadJson"
               >
-                ⬇ JSON
+                <Icon
+                  name="download"
+                  :size="13"
+                />
+                JSON
               </button>
               <button
-                class="btn btn-sm btn-success split-arrow"
+                class="btn btn-sm btn-blue split-arrow"
                 @click.stop="jsonOpen = !jsonOpen"
               >
-                ▾
+                <Icon
+                  name="chevron-down"
+                  :size="12"
+                />
               </button>
               <div
                 v-if="jsonOpen"
@@ -198,14 +248,19 @@
             v-else
             class="empty-sources"
           >
-            <span>📚</span>
-            <p>暂无书源数据</p>
-            <p class="hint">请先在编辑器中导入并解密 XBS 文件</p>
+            <div class="empty-icon-wrap">
+              <Icon
+                name="library"
+                :size="28"
+              />
+            </div>
+            <p>还没有书源</p>
+            <p class="hint">导入 XBS 或 JSON 文件后，这里会列出全部书源</p>
             <button
               class="btn btn-sm btn-primary mt"
               @click="store.activeTab = 'editor'"
             >
-              前往编辑器
+              去导入
             </button>
           </div>
         </div>
@@ -234,6 +289,7 @@ import EditorView from "@/views/EditorView.vue";
 import SourceTable from "@/components/SourceTable.vue";
 import DocsView from "@/views/DocsView.vue";
 import AiGeneratorPanel from "@/components/AiGeneratorPanel.vue";
+import Icon from "@/components/Icon.vue";
 
 const xbsOpen = ref(false);
 const jsonOpen = ref(false);
@@ -254,10 +310,10 @@ import ToastContainer from "@/components/ToastContainer.vue";
 const store = useEditorStore();
 
 const navItems = [
-  { key: "editor", icon: "⚡", label: "格式转换" },
-  { key: "sources", icon: "📚", label: "书源管理" },
-  { key: "ai", icon: "🤖", label: "AI 生成书源" },
-  { key: "docs", icon: "📖", label: "规则文档" },
+  { key: "editor", icon: "convert", label: "格式转换" },
+  { key: "sources", icon: "library", label: "书源管理" },
+  { key: "ai", icon: "sparkles", label: "AI 生成书源" },
+  { key: "docs", icon: "book-open", label: "规则文档" },
 ];
 
 const currentNavItem = computed(() =>
@@ -287,15 +343,23 @@ function onJsonFile(e: Event) {
   --surface: #ffffff;
   --surface2: #f3f4f6;
   --border: #eaeaea;
+  --border-strong: #d4d4d4;
   --border-focus: #999999;
   --accent: #000000;
   --accent-hover: #333333;
   --accent-light: #ebebeb;
-  --green: #0070f3; /* Pure clean blue for success/primary actions */
-  --green-hover: #0051b3;
-  --red: #e00;
-  --red-hover: #c00;
-  --yellow: #f5a623;
+  --blue: #0070f3; /* 信息/蓝色动作 */
+  --blue-hover: #0051b3;
+  --blue-soft: #eff6ff;
+  --green: #16a34a; /* 成功/启用 */
+  --green-hover: #15803d;
+  --green-soft: #f0fdf4;
+  --red: #dc2626;
+  --red-hover: #b91c1c;
+  --red-soft: #fef2f2;
+  --amber: #b45309;
+  --amber-soft: #fffbeb;
+  --amber-border: #fde68a;
   --text: #000000;
   --text2: #666666;
   --text3: #888888;
@@ -328,6 +392,37 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }
+
+/* ── Browser surfaces: selection, focus, scrollbars ── */
+::selection {
+  background: rgba(0, 0, 0, 0.88);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
+  border-radius: 4px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b5b5b5;
+}
 </style>
 
 <style scoped>
@@ -357,8 +452,17 @@ body {
   padding: 24px 20px 20px;
   border-bottom: none;
 }
-.logo-icon {
-  font-size: 24px;
+.logo-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 .logo-text {
   display: flex;
@@ -410,7 +514,7 @@ body {
   font-weight: 600;
 }
 .nav-icon {
-  font-size: 16px;
+  display: inline-flex;
   flex-shrink: 0;
 }
 .nav-label {
@@ -496,8 +600,9 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 0 24px;
-  height: 60px;
+  padding: 8px 24px;
+  min-height: 60px;
+  box-sizing: border-box;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(12px);
@@ -513,6 +618,8 @@ body {
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.2px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .topbar-actions {
   margin-left: auto;
@@ -613,9 +720,17 @@ body {
   gap: 12px;
   color: var(--text3);
 }
-.empty-sources span {
-  font-size: 44px;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+.empty-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
 }
 .empty-sources p {
   font-size: 16px;
@@ -629,6 +744,39 @@ body {
 }
 .mt {
   margin-top: 12px;
+}
+
+/* ── Responsive: sidebar collapses to icon rail ── */
+/* 必须放在 scoped 块内：scoped 基础样式带属性选择器，权重高于非 scoped 的媒体查询 */
+@media (max-width: 960px) {
+  .sidebar {
+    width: 60px;
+  }
+  .logo {
+    padding: 18px 0 14px;
+    justify-content: center;
+  }
+  .logo-text,
+  .nav-label,
+  .nav-badge,
+  .sidebar-footer {
+    display: none;
+  }
+  .nav {
+    padding: 8px;
+  }
+  .nav-item {
+    justify-content: center;
+    padding: 10px 0;
+  }
+  .topbar {
+    padding: 8px 14px;
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .content {
+    padding: 12px 14px;
+  }
 }
 </style>
 
@@ -692,14 +840,15 @@ body {
   box-shadow: var(--shadow-md);
 }
 
-.btn-warn {
-  background: var(--yellow);
+.btn-blue {
+  background: var(--blue);
   color: #fff;
-  border-color: var(--yellow);
+  border-color: var(--blue);
   box-shadow: var(--shadow-sm);
 }
-.btn-warn:hover:not(:disabled) {
-  filter: brightness(0.9);
+.btn-blue:hover:not(:disabled) {
+  background: var(--blue-hover);
+  border-color: var(--blue-hover);
   box-shadow: var(--shadow-md);
 }
 
@@ -713,6 +862,22 @@ body {
   background: var(--red-hover);
   border-color: var(--red-hover);
   box-shadow: var(--shadow-md);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text2);
+  border: 1px solid transparent;
+  box-shadow: none;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface2);
+  color: var(--text);
+  box-shadow: none;
+}
+.btn-ghost.danger-hover:hover:not(:disabled) {
+  background: var(--red-soft);
+  color: var(--red);
 }
 
 .btn-muted {
