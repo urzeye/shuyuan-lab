@@ -40,31 +40,51 @@
       </nav>
 
       <div class="sidebar-footer">
-        <a
-          href="https://github.com/urzeye/shuyuan-lab"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="footer-link"
-        >
-          <svg
-            class="gh-icon"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            aria-hidden="true"
+        <div class="footer-row">
+          <a
+            href="https://github.com/urzeye/shuyuan-lab"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-link"
           >
-            <path
-              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
-            />
-          </svg>
-          <span>GitHub</span>
-          <span class="star-hint">
-            <Icon
-              name="star"
-              :size="11"
-            />
+            <svg
+              class="gh-icon"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+              />
+            </svg>
+            <span>GitHub</span>
+          </a>
+          <a
+            href="https://github.com/urzeye/shuyuan-lab"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="star-btn"
+            title="在 GitHub 上 Star 这个项目"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="12"
+              height="12"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <polygon
+                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+              />
+            </svg>
             Star
-          </span>
-        </a>
+            <span
+              v-if="starCount !== null"
+              class="star-count"
+              >{{ starCount.toLocaleString() }}</span
+            >
+          </a>
+        </div>
         <div class="footer-note">本地处理 · 数据不上传</div>
       </div>
     </aside>
@@ -301,6 +321,23 @@ function onDocClick(e: MouseEvent) {
 onMounted(() => document.addEventListener("click", onDocClick));
 onUnmounted(() => document.removeEventListener("click", onDocClick));
 
+// GitHub star count：仅作展示增强，限流/离线时静默降级为无数字按钮
+const starCount = ref<number | null>(null);
+onMounted(async () => {
+  try {
+    const r = await fetch(
+      "https://api.github.com/repos/urzeye/shuyuan-lab",
+    );
+    if (r.ok) {
+      const d = await r.json();
+      starCount.value =
+        typeof d.stargazers_count === "number" ? d.stargazers_count : null;
+    }
+  } catch {
+    /* 静默降级 */
+  }
+});
+
 import ToastContainer from "@/components/ToastContainer.vue";
 
 const store = useEditorStore();
@@ -356,6 +393,7 @@ function onJsonFile(e: Event) {
   --amber: #b45309;
   --amber-soft: #fffbeb;
   --amber-border: #fde68a;
+  --star: #eab308;
   --text: #000000;
   --text2: #666666;
   --text3: #888888;
@@ -532,8 +570,14 @@ body {
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
-.footer-link {
+.footer-row {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.footer-link {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   color: var(--text3);
@@ -541,7 +585,7 @@ body {
   font-size: 12px;
   font-weight: 500;
   padding: 6px 8px;
-  margin: 0 -8px;
+  margin-left: -8px;
   border-radius: 6px;
   transition:
     background 0.15s,
@@ -556,11 +600,42 @@ body {
   height: 14px;
   flex-shrink: 0;
 }
-.star-hint {
-  font-size: 10px;
-  margin-left: auto;
-  opacity: 0.55;
-  letter-spacing: 0.02em;
+
+/* Star 按钮：footer 的主行动，GitHub 黄星吸引注意 */
+.star-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+  flex-shrink: 0;
+}
+.star-btn:hover {
+  border-color: var(--border-focus);
+  background: var(--surface2);
+}
+.star-btn svg {
+  color: var(--star);
+  transition: transform 0.15s;
+}
+.star-btn:hover svg {
+  transform: scale(1.2);
+}
+.star-count {
+  border-left: 1px solid var(--border);
+  padding-left: 6px;
+  color: var(--text2);
+  font-variant-numeric: tabular-nums;
 }
 .footer-note {
   font-size: 11px;
