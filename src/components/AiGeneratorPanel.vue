@@ -3,7 +3,10 @@
           <!-- ── Left Sidebar ── -->
           <aside class="ai-sidebar">
             <!-- Browser collector -->
-            <div class="config-card">
+            <div
+              v-if="!isStaticHosting"
+              class="config-card"
+            >
               <div class="card-heading">
                 <span class="card-heading-icon">
                   <Icon
@@ -34,7 +37,15 @@
                 AI 生成不可用
               </div>
               <div class="static-desc">
-                当前为 GitHub Pages 静态部署，不含后端 Agent 服务与浏览器环境。请在本地运行项目以使用 AI 生成书源功能。
+                当前为 GitHub Pages 静态部署：没有后端 Agent 服务，部署方也未提供
+                AI API Key，无法在线生成。
+              </div>
+              <div class="static-desc">
+                本地运行可使用完整功能，需自备 Anthropic API Key：
+              </div>
+              <div class="static-code">
+                cp .env.example .env<br />
+                # 编辑 .env，填入 ANTHROPIC_API_KEY
               </div>
               <a
                 class="static-link"
@@ -133,18 +144,26 @@
               </div>
               <div class="empty-title">AI 生成不可用</div>
               <div class="empty-desc">
-                GitHub Pages 为静态部署，不含 Agent 服务与浏览器环境。<br />
-                请 Clone 仓库后在本地运行以使用 AI 生成书源功能。
+                GitHub Pages 静态部署没有后端服务，也未配置 AI API Key。<br />
+                本地运行并在 .env 配置 ANTHROPIC_API_KEY 后即可生成书源。
               </div>
-              <a
-                class="btn btn-sm btn-primary mt"
-                href="https://github.com/urzeye/shuyuan-lab?tab=readme-ov-file#%E6%9C%AC%E5%9C%B0%E8%BF%90%E8%A1%8C"
-                target="_blank"
-                rel="noopener noreferrer"
-                style="text-decoration: none;"
-              >
-                本地运行指南 →
-              </a>
+              <div class="empty-actions">
+                <a
+                  class="btn btn-sm btn-primary"
+                  href="https://github.com/urzeye/shuyuan-lab?tab=readme-ov-file#%E6%9C%AC%E5%9C%B0%E8%BF%90%E8%A1%8C"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style="text-decoration: none;"
+                >
+                  本地运行指南 →
+                </a>
+                <button
+                  class="btn btn-sm btn-muted"
+                  @click="editorStore.activeTab = 'editor'"
+                >
+                  使用格式转换
+                </button>
+              </div>
             </div>
 
             <!-- Empty state: local -->
@@ -494,14 +513,25 @@ select.ai-input {
 }
 
 .static-notice {
-  background: #fffbeb;
-  border-color: #fde68a;
+  background: var(--amber-soft);
+  border-color: var(--amber-border);
 }
 .static-desc {
-  font-size: 11px;
+  font-size: 12px;
   color: #92400e;
   margin-top: 4px;
   line-height: 1.6;
+}
+.static-code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--text2);
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--amber-border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  margin-top: 8px;
 }
 .static-link {
   display: inline-flex;
@@ -645,6 +675,10 @@ select.ai-input {
   color: var(--text3);
   line-height: 1.7;
   max-width: 380px;
+}
+.empty-actions {
+  display: flex;
+  gap: 8px;
 }
 
 /* Steps Card */
